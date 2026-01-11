@@ -1,0 +1,168 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 멤버
+model member {
+  id             String    @id @db.Char(36)
+  name           String    @db.VarChar(20)
+  email          String    @db.VarChar(100)
+  password       String    @db.VarChar(100)
+  sex            String?   @db.VarChar(1)
+  birthday       DateTime? @db.Date
+  phone          String?   @db.VarChar(20)
+  profile_url    String?   @db.VarChar(200)
+  address        String?   @db.VarChar(100)
+  description    String?   @db.VarChar(100)
+  is_provisioned Boolean   @default(false) @db.TinyInt
+  created_at     DateTime  @default(now()) @db.DateTime(6)
+  updated_at     DateTime  @updatedAt @db.DateTime(6)
+  deleted_at     DateTime? @db.DateTime(6)
+
+  church_members church_member[]
+  group_members  group_member[]
+  prayers        prayer[]
+}
+
+// 교회
+model church {
+  id           String    @id @db.Char(36)
+  name         String    @db.VarChar(50)
+  location     String    @db.VarChar(200)
+  number       String?   @db.VarChar(20)
+  homepage_url String?   @db.VarChar(200)
+  description  String?   @db.VarChar(100)
+  created_at   DateTime  @default(now()) @db.DateTime(6)
+  updated_at   DateTime  @updatedAt @db.DateTime(6)
+  deleted_at   DateTime? @db.DateTime(6)
+
+  church_members church_member[]
+  groups         group[]
+}
+
+// 교회 멤버 (교회-멤버 연결)
+model church_member {
+  id         String    @id @db.Char(36)
+  church_id  String    @db.Char(36)
+  member_id  String    @db.Char(36)
+  role       String    @db.VarChar(20) // MEMBER, LEADER, ADMIN
+  created_at DateTime  @default(now()) @db.DateTime(6)
+  updated_at DateTime  @updatedAt @db.DateTime(6)
+  deleted_at DateTime? @db.DateTime(6)
+
+  church church @relation(fields: [church_id], references: [id])
+  member member @relation(fields: [member_id], references: [id])
+
+  @@index([church_id])
+  @@index([member_id])
+}
+
+// 그룹 (셀)
+model group {
+  id          String    @id @db.Char(36)
+  church_id   String    @db.Char(36)
+  name        String    @db.VarChar(50)
+  description String?   @db.VarChar(100)
+  start_date  DateTime? @db.Date
+  end_date    DateTime? @db.Date
+  created_at  DateTime  @default(now()) @db.DateTime(6)
+  updated_at  DateTime  @updatedAt @db.DateTime(6)
+  deleted_at  DateTime? @db.DateTime(6)
+
+  church        church         @relation(fields: [church_id], references: [id])
+  group_members group_member[]
+  gatherings    gathering[]
+
+  @@index([church_id])
+  @@map("group")
+}
+
+// 그룹 멤버 (그룹-멤버 연결)
+model group_member {
+  id         String    @id @db.Char(36)
+  group_id   String    @db.Char(36)
+  member_id  String    @db.Char(36)
+  role       String    @db.VarChar(20) // MEMBER, LEADER
+  created_at DateTime  @default(now()) @db.DateTime(6)
+  updated_at DateTime  @updatedAt @db.DateTime(6)
+  deleted_at DateTime? @db.DateTime(6)
+
+  group             group              @relation(fields: [group_id], references: [id])
+  member            member             @relation(fields: [member_id], references: [id])
+  gathering_members gathering_member[]
+
+  @@index([group_id])
+  @@index([member_id])
+}
+
+// 모임
+model gathering {
+  id             String    @id @db.Char(36)
+  group_id       String    @db.Char(36)
+  name           String    @db.VarChar(50)
+  date           DateTime  @db.Date
+  started_at     DateTime? @db.DateTime(0)
+  ended_at       DateTime? @db.DateTime(0)
+  place          String?   @db.VarChar(100)
+  description    String?   @db.VarChar(500)
+  leader_comment String?   @db.VarChar(200)
+  admin_comment  String?   @db.VarChar(200)
+  photo_url      String?   @db.VarChar(2048)
+  created_at     DateTime  @default(now()) @db.DateTime(6)
+  updated_at     DateTime  @updatedAt @db.DateTime(6)
+  deleted_at     DateTime? @db.DateTime(6)
+
+  group             group              @relation(fields: [group_id], references: [id])
+  gathering_members gathering_member[]
+
+  @@index([group_id])
+  @@index([date])
+}
+
+// 모임 멤버 (모임별 출석/나눔 기록)
+model gathering_member {
+  id                   String    @id @db.Char(36)
+  gathering_id         String    @db.Char(36)
+  group_member_id      String    @db.Char(36)
+  worship_attendance   Boolean   @default(false) @db.TinyInt
+  gathering_attendance Boolean   @default(false) @db.TinyInt
+  story                String?   @db.VarChar(500)
+  goal                 String?   @db.VarChar(500)
+  created_at           DateTime  @default(now()) @db.DateTime(6)
+  updated_at           DateTime  @updatedAt @db.DateTime(6)
+  deleted_at           DateTime? @db.DateTime(6)
+
+  gathering    gathering @relation(fields: [gathering_id], references: [id])
+  group_member group_member @relation(fields: [group_member_id], references: [id])
+  prayers      prayer[]
+
+  @@index([gathering_id])
+  @@index([group_member_id])
+}
+
+// 기도제목
+model prayer {
+  id                  String    @id @db.Char(36)
+  gathering_member_id String?   @db.Char(36)
+  member_id           String    @db.Char(36)
+  prayer_request      String    @db.VarChar(200)
+  is_answered         Boolean   @default(false) @db.TinyInt
+  description         String?   @db.VarChar(100)
+  created_at          DateTime  @default(now()) @db.DateTime(6)
+  updated_at          DateTime  @updatedAt @db.DateTime(6)
+  deleted_at          DateTime? @db.DateTime(6)
+
+  gathering_member gathering_member? @relation(fields: [gathering_member_id], references: [id])
+  member           member            @relation(fields: [member_id], references: [id])
+
+  @@index([gathering_member_id])
+  @@index([member_id])
+}
