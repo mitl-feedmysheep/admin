@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, 
   Users, 
-  UsersRound, 
+  Settings, 
   LogOut,
   Church,
   RefreshCcw
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 const navigation = [
   { name: "대시보드", href: "/dashboard", icon: LayoutDashboard },
   { name: "교적부", href: "/members", icon: Users },
-  { name: "그룹 관리", href: "/groups", icon: UsersRound },
+  { name: "관리", href: "/manage", icon: Settings },
 ];
 
 interface SidebarProps {
@@ -42,7 +42,7 @@ export function Sidebar({ churchName, memberName }: SidebarProps) {
   };
 
   return (
-    <aside className="flex h-screen w-64 flex-col bg-slate-900 text-white">
+    <aside className="sticky top-0 flex h-screen w-64 flex-col bg-slate-900 text-white">
       {/* Logo & Church */}
       <div className="border-b border-slate-800 px-6 py-4">
         <div className="flex items-center gap-2">
