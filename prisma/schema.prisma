@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,29 +7,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 멤버
 model member {
   id             String    @id @db.Char(36)
   name           String    @db.VarChar(20)
-  email          String    @db.VarChar(100)
+  email          String    @unique(map: "idx_email") @db.VarChar(100)
   password       String    @db.VarChar(100)
-  sex            String?   @db.VarChar(1)
-  birthday       DateTime? @db.Date
-  phone          String?   @db.VarChar(20)
+  sex            String    @db.VarChar(1)
+  birthday       DateTime  @db.Date
+  phone          String    @db.VarChar(20)
   profile_url    String?   @db.VarChar(200)
   address        String?   @db.VarChar(100)
+  occupation     String?   @db.VarChar(100)
+  baptism_status String?   @db.VarChar(20)
+  mbti           String?   @db.VarChar(4)
   description    String?   @db.VarChar(100)
-  is_provisioned Boolean   @default(false) @db.TinyInt
-  created_at     DateTime  @default(now()) @db.DateTime(6)
-  updated_at     DateTime  @updatedAt @db.DateTime(6)
-  deleted_at     DateTime? @db.DateTime(6)
+  is_provisioned Boolean   @default(false)
+  created_at     DateTime  @default(now()) @db.DateTime(0)
+  updated_at     DateTime  @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at     DateTime? @db.DateTime(0)
 
   church_members church_member[]
   group_members  group_member[]
   prayers        prayer[]
 }
 
-// 교회
 model church {
   id           String    @id @db.Char(36)
   name         String    @db.VarChar(50)
@@ -40,23 +38,22 @@ model church {
   number       String?   @db.VarChar(20)
   homepage_url String?   @db.VarChar(200)
   description  String?   @db.VarChar(100)
-  created_at   DateTime  @default(now()) @db.DateTime(6)
-  updated_at   DateTime  @updatedAt @db.DateTime(6)
-  deleted_at   DateTime? @db.DateTime(6)
+  created_at   DateTime  @default(now()) @db.DateTime(0)
+  updated_at   DateTime? @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at   DateTime? @db.DateTime(0)
 
   church_members church_member[]
   groups         group[]
 }
 
-// 교회 멤버 (교회-멤버 연결)
 model church_member {
   id         String    @id @db.Char(36)
   church_id  String    @db.Char(36)
   member_id  String    @db.Char(36)
-  role       String    @db.VarChar(20) // MEMBER, LEADER, ADMIN
-  created_at DateTime  @default(now()) @db.DateTime(6)
-  updated_at DateTime  @updatedAt @db.DateTime(6)
-  deleted_at DateTime? @db.DateTime(6)
+  role       String    @db.VarChar(20)
+  created_at DateTime  @default(now()) @db.DateTime(0)
+  updated_at DateTime? @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at DateTime? @db.DateTime(0)
 
   church church @relation(fields: [church_id], references: [id])
   member member @relation(fields: [member_id], references: [id])
@@ -65,7 +62,6 @@ model church_member {
   @@index([member_id])
 }
 
-// 그룹 (셀)
 model group {
   id          String    @id @db.Char(36)
   church_id   String    @db.Char(36)
@@ -73,27 +69,26 @@ model group {
   description String?   @db.VarChar(100)
   start_date  DateTime? @db.Date
   end_date    DateTime? @db.Date
-  created_at  DateTime  @default(now()) @db.DateTime(6)
-  updated_at  DateTime  @updatedAt @db.DateTime(6)
-  deleted_at  DateTime? @db.DateTime(6)
+  created_at  DateTime  @default(now()) @db.DateTime(0)
+  updated_at  DateTime? @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at  DateTime? @db.DateTime(0)
 
   church        church         @relation(fields: [church_id], references: [id])
   group_members group_member[]
   gatherings    gathering[]
 
-  @@index([church_id])
+  @@index([church_id, deleted_at], map: "idx_group_church_deleted")
   @@map("group")
 }
 
-// 그룹 멤버 (그룹-멤버 연결)
 model group_member {
   id         String    @id @db.Char(36)
   group_id   String    @db.Char(36)
   member_id  String    @db.Char(36)
-  role       String    @db.VarChar(20) // MEMBER, LEADER
-  created_at DateTime  @default(now()) @db.DateTime(6)
-  updated_at DateTime  @updatedAt @db.DateTime(6)
-  deleted_at DateTime? @db.DateTime(6)
+  role       String    @db.VarChar(20)
+  created_at DateTime  @default(now()) @db.DateTime(0)
+  updated_at DateTime? @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at DateTime? @db.DateTime(0)
 
   group             group              @relation(fields: [group_id], references: [id])
   member            member             @relation(fields: [member_id], references: [id])
@@ -103,7 +98,6 @@ model group_member {
   @@index([member_id])
 }
 
-// 모임
 model gathering {
   id             String    @id @db.Char(36)
   group_id       String    @db.Char(36)
@@ -113,56 +107,113 @@ model gathering {
   ended_at       DateTime? @db.DateTime(0)
   place          String?   @db.VarChar(100)
   description    String?   @db.VarChar(500)
+  photo_url      String?   @db.VarChar(1024)
   leader_comment String?   @db.VarChar(200)
   admin_comment  String?   @db.VarChar(200)
-  photo_url      String?   @db.VarChar(2048)
-  created_at     DateTime  @default(now()) @db.DateTime(6)
-  updated_at     DateTime  @updatedAt @db.DateTime(6)
-  deleted_at     DateTime? @db.DateTime(6)
+  created_at     DateTime  @default(now()) @db.DateTime(0)
+  updated_at     DateTime? @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at     DateTime? @db.DateTime(0)
 
   group             group              @relation(fields: [group_id], references: [id])
   gathering_members gathering_member[]
 
-  @@index([group_id])
-  @@index([date])
+  @@index([group_id, deleted_at], map: "idx_gathering_group_deleted")
 }
 
-// 모임 멤버 (모임별 출석/나눔 기록)
 model gathering_member {
   id                   String    @id @db.Char(36)
   gathering_id         String    @db.Char(36)
   group_member_id      String    @db.Char(36)
-  worship_attendance   Boolean   @default(false) @db.TinyInt
-  gathering_attendance Boolean   @default(false) @db.TinyInt
+  worship_attendance   Boolean   @default(false)
+  gathering_attendance Boolean   @default(false)
   story                String?   @db.VarChar(500)
   goal                 String?   @db.VarChar(500)
-  created_at           DateTime  @default(now()) @db.DateTime(6)
-  updated_at           DateTime  @updatedAt @db.DateTime(6)
-  deleted_at           DateTime? @db.DateTime(6)
+  leader_comment       String?   @db.VarChar(200)
+  created_at           DateTime  @default(now()) @db.DateTime(0)
+  updated_at           DateTime? @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at           DateTime? @db.DateTime(0)
 
-  gathering    gathering @relation(fields: [gathering_id], references: [id])
+  gathering    gathering    @relation(fields: [gathering_id], references: [id])
   group_member group_member @relation(fields: [group_member_id], references: [id])
   prayers      prayer[]
 
-  @@index([gathering_id])
+  @@index([gathering_id, deleted_at], map: "idx_gathering_member_gathering_deleted")
   @@index([group_member_id])
 }
 
-// 기도제목
 model prayer {
   id                  String    @id @db.Char(36)
   gathering_member_id String?   @db.Char(36)
+  visit_member_id     String?   @db.Char(36)
   member_id           String    @db.Char(36)
   prayer_request      String    @db.VarChar(200)
-  is_answered         Boolean   @default(false) @db.TinyInt
+  is_answered         Boolean   @default(false)
   description         String?   @db.VarChar(100)
-  created_at          DateTime  @default(now()) @db.DateTime(6)
-  updated_at          DateTime  @updatedAt @db.DateTime(6)
-  deleted_at          DateTime? @db.DateTime(6)
+  created_at          DateTime  @default(now()) @db.DateTime(0)
+  updated_at          DateTime? @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at          DateTime? @db.DateTime(0)
 
   gathering_member gathering_member? @relation(fields: [gathering_member_id], references: [id])
   member           member            @relation(fields: [member_id], references: [id])
 
-  @@index([gathering_member_id])
+  @@index([gathering_member_id, deleted_at], map: "idx_prayer_gm_deleted")
   @@index([member_id])
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model media {
+  id            String    @db.Char(36)
+  media_type    String    @default("ORIGINAL") @db.VarChar(20)
+  entity_type   String    @db.VarChar(20)
+  entity_id     String    @db.Char(36)
+  url           String    @db.VarChar(2048)
+  file_group_id String    @db.VarChar(36)
+  created_at    DateTime  @default(now()) @db.DateTime(6)
+  updated_at    DateTime  @default(now()) @db.DateTime(6)
+  deleted_at    DateTime? @db.DateTime(6)
+
+  @@index([entity_id], map: "idx_media_entity_id")
+  @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model verification {
+  id         String    @db.Char(36)
+  type       String?   @db.VarChar(20)
+  type_value String    @db.VarChar(100)
+  code       String    @db.VarChar(20)
+  created_at DateTime  @default(now()) @db.DateTime(6)
+  updated_at DateTime  @default(now()) @db.DateTime(6)
+  deleted_at DateTime? @db.DateTime(6)
+
+  @@ignore
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model visit {
+  id               String    @id @db.Char(36)
+  church_id        String    @db.Char(36)
+  church_member_id String    @db.Char(36)
+  date             DateTime  @db.Date
+  started_at       DateTime  @db.DateTime(0)
+  ended_at         DateTime  @db.DateTime(0)
+  place            String    @db.VarChar(100)
+  expense          Int       @default(0)
+  notes            String?   @db.VarChar(1000)
+  created_at       DateTime  @default(now()) @db.DateTime(6)
+  updated_at       DateTime  @default(now()) @db.DateTime(6)
+  deleted_at       DateTime? @db.DateTime(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model visit_member {
+  id               String    @id @db.Char(36)
+  visit_id         String    @db.Char(36)
+  church_member_id String    @db.Char(36)
+  story            String?   @db.VarChar(1000)
+  created_at       DateTime  @default(now()) @db.DateTime(6)
+  updated_at       DateTime  @default(now()) @db.DateTime(6)
+  deleted_at       DateTime? @db.DateTime(6)
 }

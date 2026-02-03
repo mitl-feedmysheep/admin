@@ -1,210 +1,77 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, UsersRound, Church, HandHeart, Download, ChevronRight, User, Check, X, AlertCircle } from "lucide-react";
+import { Users, UsersRound, Church, HandHeart, Download, ChevronRight, ChevronLeft, User, Check, X, AlertCircle, Loader2, BookOpen, Target } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
 import * as XLSX from "xlsx";
 
-// 연도별 통계 데이터 (TODO: 실제 DB 연동)
-const statsByYear: Record<string, {
+// API 응답 타입
+interface StatsData {
   totalMembers: number;
   activeGroups: number;
   worshipRate: string;
   gatheringRate: string;
-}> = {
-  "2026": {
-    totalMembers: 156,
-    activeGroups: 14,
-    worshipRate: "82%",
-    gatheringRate: "75%",
-  },
-  "2025": {
-    totalMembers: 142,
-    activeGroups: 12,
-    worshipRate: "78%",
-    gatheringRate: "71%",
-  },
-  "2024": {
-    totalMembers: 128,
-    activeGroups: 10,
-    worshipRate: "75%",
-    gatheringRate: "68%",
-  },
-};
+}
 
-// 전체 소모임 목록 (TODO: 실제 DB에서 조회)
-const allGroups = [
-  "강소정 셀",
-  "강혜정 셀",
-  "김민지 셀",
-  "김수지 셀",
-  "류희재 셀",
-  "박예슬 셀",
-  "배나현 셀",
-  "석지원 셀",
-  "유미미 셀",
-  "최예환 셀",
-  "한지은 셀",
-];
-
-// 주차별 모임 데이터 (TODO: 실제 DB 연동)
 interface GatheringData {
-  group: string;
+  gatheringId?: string;
+  groupId: string;
+  groupName: string;
   created: boolean;
+  place: string;
   worshipAttendance: string;
   worshipRate: string;
   gatheringAttendance: string;
   gatheringRate: string;
+  specialNote: string;
+  leaderComment?: string;
+  adminComment?: string;
 }
 
-// 리더 코멘트 / 목회자 코멘트 데이터 (TODO: 실제 DB 연동)
-interface GatheringComments {
-  leaderComment: string;
-  pastorComment: string;
-}
-
-const mockGatheringComments: Record<string, Record<string, GatheringComments>> = {
-  "2026-01-5": {
-    "강소정 셀": { leaderComment: "새해 첫 모임이라 활동지를 진행했습니다. 서로의 2026년 기도제목을 나누는 시간을 가졌습니다.", pastorComment: "" },
-    "강혜정 셀": { leaderComment: "오랜만에 전원 참석해서 감사했습니다.", pastorComment: "셀이 잘 성장하고 있네요. 화이팅!" },
-    "김민지 셀": { leaderComment: "새 멤버가 적응을 잘 하고 있어요.", pastorComment: "" },
-    "최예환 셀": { leaderComment: "", pastorComment: "" },
-  },
-};
-
-// 특이사항 데이터 (TODO: 실제 DB 연동)
-const mockSpecialNotes: Record<string, Record<string, string>> = {
-  "2026-01-5": {
-    "강소정 셀": "",
-    "강혜정 셀": "새 멤버 1명 합류 예정",
-    "김민지 셀": "",
-    "최예환 셀": "리더 해외출장으로 다음주 모임 취소",
-  },
-};
-
-// 생성된 모임 데이터만 저장 (created: true인 것들)
-const mockCreatedGatherings: Record<string, Record<string, Omit<GatheringData, "group" | "created">>> = {
-  "2026-01-1": {
-    "강소정 셀": { worshipAttendance: "6/8", worshipRate: "75%", gatheringAttendance: "5/8", gatheringRate: "62%" },
-    "강혜정 셀": { worshipAttendance: "5/6", worshipRate: "83%", gatheringAttendance: "5/6", gatheringRate: "83%" },
-    "김민지 셀": { worshipAttendance: "6/7", worshipRate: "86%", gatheringAttendance: "5/7", gatheringRate: "71%" },
-    "류희재 셀": { worshipAttendance: "9/10", worshipRate: "90%", gatheringAttendance: "8/10", gatheringRate: "80%" },
-    "박예슬 셀": { worshipAttendance: "8/9", worshipRate: "89%", gatheringAttendance: "7/9", gatheringRate: "78%" },
-    "최예환 셀": { worshipAttendance: "7/8", worshipRate: "88%", gatheringAttendance: "7/8", gatheringRate: "88%" },
-  },
-  "2026-01-2": {
-    "강소정 셀": { worshipAttendance: "7/8", worshipRate: "88%", gatheringAttendance: "6/8", gatheringRate: "75%" },
-    "강혜정 셀": { worshipAttendance: "5/6", worshipRate: "83%", gatheringAttendance: "4/6", gatheringRate: "67%" },
-    "김민지 셀": { worshipAttendance: "7/7", worshipRate: "100%", gatheringAttendance: "6/7", gatheringRate: "86%" },
-    "류희재 셀": { worshipAttendance: "10/10", worshipRate: "100%", gatheringAttendance: "9/10", gatheringRate: "90%" },
-    "석지원 셀": { worshipAttendance: "8/9", worshipRate: "89%", gatheringAttendance: "6/9", gatheringRate: "67%" },
-    "유미미 셀": { worshipAttendance: "8/9", worshipRate: "89%", gatheringAttendance: "6/9", gatheringRate: "67%" },
-    "최예환 셀": { worshipAttendance: "8/8", worshipRate: "100%", gatheringAttendance: "7/8", gatheringRate: "88%" },
-  },
-  "2026-01-3": {
-    "강소정 셀": { worshipAttendance: "8/8", worshipRate: "100%", gatheringAttendance: "7/8", gatheringRate: "88%" },
-    "강혜정 셀": { worshipAttendance: "6/6", worshipRate: "100%", gatheringAttendance: "5/6", gatheringRate: "83%" },
-    "박예슬 셀": { worshipAttendance: "9/9", worshipRate: "100%", gatheringAttendance: "8/9", gatheringRate: "89%" },
-    "배나현 셀": { worshipAttendance: "6/7", worshipRate: "86%", gatheringAttendance: "5/7", gatheringRate: "71%" },
-    "석지원 셀": { worshipAttendance: "9/9", worshipRate: "100%", gatheringAttendance: "7/9", gatheringRate: "78%" },
-    "한지은 셀": { worshipAttendance: "4/9", worshipRate: "44%", gatheringAttendance: "4/9", gatheringRate: "44%" },
-  },
-  "2026-01-4": {
-    "강소정 셀": { worshipAttendance: "6/8", worshipRate: "75%", gatheringAttendance: "5/8", gatheringRate: "62%" },
-    "김민지 셀": { worshipAttendance: "6/7", worshipRate: "86%", gatheringAttendance: "5/7", gatheringRate: "71%" },
-    "류희재 셀": { worshipAttendance: "8/10", worshipRate: "80%", gatheringAttendance: "7/10", gatheringRate: "70%" },
-    "김수지 셀": { worshipAttendance: "4/8", worshipRate: "50%", gatheringAttendance: "4/8", gatheringRate: "50%" },
-    "유미미 셀": { worshipAttendance: "6/9", worshipRate: "67%", gatheringAttendance: "6/9", gatheringRate: "67%" },
-  },
-  "2026-01-5": {
-    "강소정 셀": { worshipAttendance: "7/8", worshipRate: "88%", gatheringAttendance: "6/8", gatheringRate: "75%" },
-    "강혜정 셀": { worshipAttendance: "6/6", worshipRate: "100%", gatheringAttendance: "5/6", gatheringRate: "83%" },
-    "김민지 셀": { worshipAttendance: "7/7", worshipRate: "100%", gatheringAttendance: "7/7", gatheringRate: "100%" },
-    "최예환 셀": { worshipAttendance: "8/8", worshipRate: "100%", gatheringAttendance: "7/8", gatheringRate: "88%" },
-  },
-};
-
-// 전체 소모임 목록 기반으로 주차별 데이터 생성
-function getGatheringsForWeek(weekKey: string): GatheringData[] {
-  const createdData = mockCreatedGatherings[weekKey] || {};
-  
-  return allGroups.map((group) => {
-    const data = createdData[group];
-    if (data) {
-      return {
-        group,
-        created: true,
-        ...data,
-      };
-    } else {
-      return {
-        group,
-        created: false,
-        worshipAttendance: "-",
-        worshipRate: "-",
-        gatheringAttendance: "-",
-        gatheringRate: "-",
-      };
-    }
-  });
-}
-
-// 소모임원별 상세 데이터 (TODO: 실제 DB 연동)
-interface MemberDetail {
+interface GatheringDetailMember {
   id: string;
-  name: string;
-  role: "LEADER" | "MEMBER";
+  memberId: string;
+  memberName: string;
+  sex: string;
+  birthday: string;
   worshipAttendance: boolean;
   gatheringAttendance: boolean;
   story: string;
-  weeklyGoal: string;
-  prayerRequests: string[];
+  goal: string;
+  leaderComment: string;
+  prayers: Array<{ id: string; content: string; isAnswered: boolean }>;
 }
 
-const mockMemberDetails: Record<string, MemberDetail[]> = {
-  "강소정 셀": [
-    { id: "1", name: "강소정", role: "LEADER", worshipAttendance: true, gatheringAttendance: true, story: "이번 주 회사에서 좋은 일이 있었어요", weeklyGoal: "하루의 시작을 기도로 시작하기", prayerRequests: ["셀리더로서 지혜롭게 섬길 수 있도록", "가족들의 건강을 위해"] },
-    { id: "2", name: "변재욱", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "", weeklyGoal: "매일 성경 1장씩 읽기", prayerRequests: ["취업 준비가 잘 되도록"] },
-    { id: "3", name: "서현제", role: "MEMBER", worshipAttendance: true, gatheringAttendance: false, story: "", weeklyGoal: "", prayerRequests: [] },
-    { id: "4", name: "안혜인", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "친구와 화해했어요", weeklyGoal: "감사일기 쓰기", prayerRequests: ["학업에 집중할 수 있도록", "좋은 친구들과의 관계"] },
-    { id: "5", name: "이민주", role: "MEMBER", worshipAttendance: false, gatheringAttendance: false, story: "", weeklyGoal: "", prayerRequests: [] },
-    { id: "6", name: "정지환", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "", weeklyGoal: "운동 주 3회", prayerRequests: ["건강 회복"] },
-    { id: "7", name: "조정빈", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "새로운 프로젝트 시작", weeklyGoal: "", prayerRequests: ["프로젝트 성공적으로 마무리"] },
-    { id: "8", name: "최고은", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "", weeklyGoal: "말씀 묵상하기", prayerRequests: [] },
-  ],
-  "강혜정 셀": [
-    { id: "9", name: "강혜정", role: "LEADER", worshipAttendance: true, gatheringAttendance: true, story: "", weeklyGoal: "셀원들 위해 매일 기도", prayerRequests: ["셀이 은혜 가운데 성장하도록"] },
-    { id: "10", name: "김영희", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "감사한 일주일", weeklyGoal: "", prayerRequests: ["부모님 건강"] },
-    { id: "11", name: "박철수", role: "MEMBER", worshipAttendance: true, gatheringAttendance: false, story: "", weeklyGoal: "새벽기도 참석", prayerRequests: [] },
-    { id: "12", name: "이수진", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "", weeklyGoal: "", prayerRequests: ["진로 결정에 지혜를"] },
-    { id: "13", name: "정민호", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "이직 준비 중", weeklyGoal: "하루 30분 독서", prayerRequests: ["좋은 회사로 이직", "면접 잘 보도록"] },
-    { id: "14", name: "한지영", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "", weeklyGoal: "", prayerRequests: [] },
-  ],
-  "김민지 셀": [
-    { id: "15", name: "김민지", role: "LEADER", worshipAttendance: true, gatheringAttendance: true, story: "셀 모임 준비하며 은혜받음", weeklyGoal: "셀원 한명씩 연락하기", prayerRequests: ["리더로서 본이 되는 삶"] },
-    { id: "16", name: "김태희", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "", weeklyGoal: "", prayerRequests: [] },
-    { id: "17", name: "박지훈", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "", weeklyGoal: "큐티 매일하기", prayerRequests: ["영적 성장"] },
-    { id: "18", name: "이서연", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "축복받은 한 주", weeklyGoal: "", prayerRequests: ["시험 잘 보도록", "체력 유지"] },
-    { id: "19", name: "장현우", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "", weeklyGoal: "", prayerRequests: [] },
-    { id: "20", name: "최유나", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "", weeklyGoal: "감사 생활하기", prayerRequests: ["가정의 평화"] },
-    { id: "21", name: "홍길동", role: "MEMBER", worshipAttendance: true, gatheringAttendance: true, story: "", weeklyGoal: "", prayerRequests: [] },
-  ],
-};
+interface GatheringDetail {
+  id: string;
+  groupId: string;
+  groupName: string;
+  date: string;
+  place: string;
+  leaderComment: string;
+  adminComment: string;
+  stats: {
+    totalMembers: number;
+    worshipAttended: number;
+    worshipRate: number;
+    gatheringAttended: number;
+    gatheringRate: number;
+  };
+  members: GatheringDetailMember[];
+}
 
 // 주차 정보 생성 (해당 월의 주차들, 현재 시점까지만)
 function getWeeksOfMonth(year: number, month: number, limitToToday: boolean = false) {
-  const weeks: Array<{ key: string; label: string; start: string; end: string }> = [];
+  const weeks: Array<{ key: string; label: string; weekNum: number }> = [];
   
   const today = new Date();
   const firstDay = new Date(year, month - 1, 1);
@@ -214,7 +81,6 @@ function getWeeksOfMonth(year: number, month: number, limitToToday: boolean = fa
   let currentStart = new Date(firstDay);
   
   while (currentStart <= lastDay) {
-    // 현재 시점 제한이 있고, 주차 시작일이 오늘 이후면 중단
     if (limitToToday && currentStart > today) {
       break;
     }
@@ -233,10 +99,9 @@ function getWeeksOfMonth(year: number, month: number, limitToToday: boolean = fa
     const endStr = `${currentEnd.getMonth() + 1}.${currentEnd.getDate()}`;
     
     weeks.push({
-      key: `${year}-${String(month).padStart(2, "0")}-${weekNum}`,
+      key: String(weekNum),
       label: `${weekNum}주차 (${startStr}~${endStr})`,
-      start: currentStart.toISOString().split("T")[0],
-      end: currentEnd.toISOString().split("T")[0],
+      weekNum,
     });
     
     currentStart = new Date(currentEnd);
@@ -247,22 +112,21 @@ function getWeeksOfMonth(year: number, month: number, limitToToday: boolean = fa
   return weeks;
 }
 
-// 연도 옵션 (TODO: 추후 확장)
+// 연도 옵션
 function getYearOptions() {
   return [{ key: "2026", label: "2026년" }];
 }
 
-// 월 옵션 (현재 연도면 현재 월까지만, 과거 연도면 전체)
+// 월 옵션
 function getMonthOptions(selectedYear: number) {
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
   
-  // 과거 연도면 12월까지, 현재 연도면 현재 월까지
   const maxMonth = selectedYear < currentYear ? 12 : currentMonth;
   
   return Array.from({ length: maxMonth }, (_, i) => ({
-    key: String(i + 1).padStart(2, "0"),
+    key: String(i + 1),
     label: `${i + 1}월`,
     month: i + 1,
   }));
@@ -276,79 +140,231 @@ export function DashboardClient() {
   const yearOptions = useMemo(() => getYearOptions(), []);
   
   const [selectedYear, setSelectedYear] = useState(yearOptions[0].key);
-  const [selectedMonth, setSelectedMonth] = useState(String(currentMonth).padStart(2, "0"));
+  const [selectedMonth, setSelectedMonth] = useState(String(currentMonth));
   
-  // 현재 연도인지 확인
   const isCurrentYear = Number(selectedYear) === currentYear;
   const isCurrentMonth = isCurrentYear && Number(selectedMonth) === currentMonth;
   
-  // 월 옵션 (현재 연도면 현재 월까지만)
   const monthOptions = useMemo(
     () => getMonthOptions(Number(selectedYear)),
     [selectedYear]
   );
   
-  // 주차 옵션 (현재 월이면 현재 주차까지만)
   const weeks = useMemo(
     () => getWeeksOfMonth(Number(selectedYear), Number(selectedMonth), isCurrentMonth),
     [selectedYear, selectedMonth, isCurrentMonth]
   );
   
-  const [selectedWeek, setSelectedWeek] = useState(weeks[weeks.length - 1]?.key || "");
+  const [selectedWeek, setSelectedWeek] = useState(weeks[weeks.length - 1]?.key || "1");
   
-  // 월이 변경되면 해당 월의 마지막 주차로 초기화
+  // API 데이터 상태
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [gatherings, setGatherings] = useState<GatheringData[]>([]);
+  const [gatheringDetail, setGatheringDetail] = useState<GatheringDetail | null>(null);
+  
+  // 로딩 상태
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [gatheringsLoading, setGatheringsLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  
+  // Sheet 상태
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedGathering, setSelectedGathering] = useState<GatheringData | null>(null);
+  
+  // 목회자 코멘트 상태
+  const [pastorComment, setPastorComment] = useState("");
+  const [savingComment, setSavingComment] = useState(false);
+  const [commentSaved, setCommentSaved] = useState(false);
+
+  // 통계 데이터 가져오기
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const res = await fetch(`/api/dashboard/stats?year=${selectedYear}`);
+      const json = await res.json();
+      if (json.success) {
+        setStats(json.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch stats:", error);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [selectedYear]);
+
+  // 주차별 모임 데이터 가져오기
+  const fetchGatherings = useCallback(async () => {
+    setGatheringsLoading(true);
+    try {
+      const res = await fetch(
+        `/api/dashboard/gatherings?year=${selectedYear}&month=${selectedMonth}&week=${selectedWeek}`
+      );
+      const json = await res.json();
+      if (json.success) {
+        setGatherings(json.data.gatherings);
+      }
+    } catch (error) {
+      console.error("Failed to fetch gatherings:", error);
+    } finally {
+      setGatheringsLoading(false);
+    }
+  }, [selectedYear, selectedMonth, selectedWeek]);
+
+  // 모임 상세 데이터 가져오기
+  const fetchGatheringDetail = useCallback(async (gatheringId: string) => {
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`/api/dashboard/gatherings/${gatheringId}`);
+      const json = await res.json();
+      if (json.success) {
+        setGatheringDetail(json.data);
+        setPastorComment(json.data.adminComment || "");
+      }
+    } catch (error) {
+      console.error("Failed to fetch gathering detail:", error);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  // 목회자 코멘트 저장
+  const saveAdminComment = async () => {
+    if (!selectedGathering?.gatheringId) return;
+    
+    setSavingComment(true);
+    setCommentSaved(false);
+    try {
+      const res = await fetch(`/api/dashboard/gatherings/${selectedGathering.gatheringId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminComment: pastorComment }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        // 성공 시 로컬 상태 업데이트
+        if (gatheringDetail) {
+          setGatheringDetail({ ...gatheringDetail, adminComment: pastorComment });
+        }
+        // 저장 성공 표시
+        setCommentSaved(true);
+        setTimeout(() => setCommentSaved(false), 2500);
+      }
+    } catch (error) {
+      console.error("Failed to save comment:", error);
+    } finally {
+      setSavingComment(false);
+    }
+  };
+
+  // 연도 변경 시 통계 다시 가져오기
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  // 주차 변경 시 모임 데이터 다시 가져오기
+  useEffect(() => {
+    fetchGatherings();
+  }, [fetchGatherings]);
+
+  // 월 변경 핸들러
   const handleMonthChange = (value: string) => {
     setSelectedMonth(value);
     const isCurrentMo = isCurrentYear && Number(value) === currentMonth;
     const newWeeks = getWeeksOfMonth(Number(selectedYear), Number(value), isCurrentMo);
-    setSelectedWeek(newWeeks[newWeeks.length - 1]?.key || "");
+    setSelectedWeek(newWeeks[newWeeks.length - 1]?.key || "1");
   };
   
-  // 연도가 변경되면 월/주차도 초기화
+  // 연도 변경 핸들러
   const handleYearChange = (value: string) => {
     setSelectedYear(value);
     const isCurrYear = Number(value) === currentYear;
-    
-    // 현재 연도면 현재 월, 과거 연도면 12월
     const newMonth = isCurrYear ? currentMonth : 12;
-    setSelectedMonth(String(newMonth).padStart(2, "0"));
+    setSelectedMonth(String(newMonth));
     
     const isCurrentMo = isCurrYear && newMonth === currentMonth;
     const newWeeks = getWeeksOfMonth(Number(value), newMonth, isCurrentMo);
-    setSelectedWeek(newWeeks[newWeeks.length - 1]?.key || "");
+    setSelectedWeek(newWeeks[newWeeks.length - 1]?.key || "1");
   };
-  
-  // 선택된 연도의 통계
-  const yearStats = statsByYear[selectedYear] || statsByYear["2026"];
-  
-  // 선택된 주차의 모임 데이터 (전체 소모임 기준)
-  const gatherings = useMemo(() => getGatheringsForWeek(selectedWeek), [selectedWeek]);
-  
-  // Sheet 상태
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<GatheringData | null>(null);
+
+  // 이전/다음 주차 이동 핸들러
+  const handlePrevWeek = () => {
+    const currentWeekIndex = weeks.findIndex((w) => w.key === selectedWeek);
+    if (currentWeekIndex > 0) {
+      // 이전 주차로
+      setSelectedWeek(weeks[currentWeekIndex - 1].key);
+    } else {
+      // 이전 달의 마지막 주차로
+      const currentMonthNum = Number(selectedMonth);
+      if (currentMonthNum > 1) {
+        const prevMonth = String(currentMonthNum - 1);
+        const prevMonthWeeks = getWeeksOfMonth(Number(selectedYear), currentMonthNum - 1, false);
+        setSelectedMonth(prevMonth);
+        setSelectedWeek(prevMonthWeeks[prevMonthWeeks.length - 1]?.key || "1");
+      } else {
+        // 이전 연도 12월로
+        const prevYear = String(Number(selectedYear) - 1);
+        const prevMonthWeeks = getWeeksOfMonth(Number(prevYear), 12, false);
+        setSelectedYear(prevYear);
+        setSelectedMonth("12");
+        setSelectedWeek(prevMonthWeeks[prevMonthWeeks.length - 1]?.key || "1");
+      }
+    }
+  };
+
+  const handleNextWeek = () => {
+    const currentWeekIndex = weeks.findIndex((w) => w.key === selectedWeek);
+    if (currentWeekIndex < weeks.length - 1) {
+      // 다음 주차로
+      setSelectedWeek(weeks[currentWeekIndex + 1].key);
+    } else {
+      // 다음 달의 첫 주차로
+      const currentMonthNum = Number(selectedMonth);
+      const currentYearNum = Number(selectedYear);
+      
+      // 현재 연도/월 제한 체크
+      if (currentYearNum === currentYear && currentMonthNum >= currentMonth) {
+        return; // 현재 달 이후로는 이동 불가
+      }
+      
+      if (currentMonthNum < 12) {
+        const nextMonth = String(currentMonthNum + 1);
+        setSelectedMonth(nextMonth);
+        setSelectedWeek("1");
+      } else {
+        // 다음 연도 1월로
+        const nextYear = String(currentYearNum + 1);
+        if (Number(nextYear) <= currentYear) {
+          setSelectedYear(nextYear);
+          setSelectedMonth("1");
+          setSelectedWeek("1");
+        }
+      }
+    }
+  };
+
+  // 이전/다음 버튼 비활성화 상태
+  const canGoPrev = true; // 과거로는 항상 이동 가능
+  const canGoNext = !(Number(selectedYear) === currentYear && 
+                      Number(selectedMonth) === currentMonth && 
+                      weeks.findIndex((w) => w.key === selectedWeek) === weeks.length - 1);
   
   // 소모임 클릭 핸들러
   const handleGroupClick = (gathering: GatheringData) => {
-    if (!gathering.created) return; // 생성되지 않은 모임은 클릭 불가
-    setSelectedGroup(gathering);
+    if (!gathering.created || !gathering.gatheringId) return;
+    setSelectedGathering(gathering);
     setSheetOpen(true);
+    fetchGatheringDetail(gathering.gatheringId);
   };
   
-  // 선택된 소모임의 멤버 상세 데이터
-  const selectedMembers = selectedGroup ? (mockMemberDetails[selectedGroup.group] || []) : [];
-  
-  // 엑셀 다운로드 함수
+  // 엑셀 다운로드
   const handleExcelDownload = () => {
     if (gatherings.length === 0) return;
     
-    // 현재 선택된 주차 정보 가져오기
     const selectedWeekInfo = weeks.find((w) => w.key === selectedWeek);
     const weekLabel = selectedWeekInfo?.label || selectedWeek;
     
-    // 엑셀 데이터 준비
     const excelData = gatherings.map((g) => ({
-      소모임: g.group,
+      소모임: g.groupName,
       생성여부: g.created ? "O" : "X",
       "예배 출석": g.worshipAttendance,
       "예배 출석률": g.worshipRate,
@@ -356,40 +372,37 @@ export function DashboardClient() {
       "소모임 출석률": g.gatheringRate,
     }));
     
-    // 워크시트 생성
     const worksheet = XLSX.utils.json_to_sheet(excelData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "주차별 모임 현황");
     
-    // 파일명 생성
     const fileName = `주차별_모임_현황_${selectedYear}년_${selectedMonth}월_${weekLabel.split(" ")[0]}.xlsx`;
-    
-    // 다운로드
     XLSX.writeFile(workbook, fileName);
   };
-  
-  const stats = [
+
+  // 통계 카드 데이터
+  const statsCards = [
     {
       title: "전체 멤버",
-      value: String(yearStats.totalMembers),
+      value: stats ? String(stats.totalMembers) : "-",
       description: "등록된 교적부 인원",
       icon: Users,
     },
     {
       title: "활성 소모임",
-      value: String(yearStats.activeGroups),
+      value: stats ? String(stats.activeGroups) : "-",
       description: "현재 운영중인 소모임",
       icon: UsersRound,
     },
     {
       title: "전체 예배 참석률",
-      value: yearStats.worshipRate,
+      value: stats?.worshipRate || "-",
       description: "생성된 소모임 기준",
       icon: Church,
     },
     {
       title: "전체 소모임 참석률",
-      value: yearStats.gatheringRate,
+      value: stats?.gatheringRate || "-",
       description: "생성된 소모임 기준",
       icon: HandHeart,
     },
@@ -423,7 +436,7 @@ export function DashboardClient() {
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+        {statsCards.map((stat) => (
           <Card key={stat.title} className="border-slate-200 dark:border-slate-800">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -432,12 +445,21 @@ export function DashboardClient() {
               <stat.icon className="h-4 w-4 text-slate-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                {stat.value}
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {stat.description}
-              </p>
+              {statsLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                  <span className="text-slate-400">로딩중...</span>
+                </div>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {stat.value}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {stat.description}
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -455,7 +477,18 @@ export function DashboardClient() {
                 해당 주차에 생성된 모임 목록
               </CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              {/* 이전 버튼 */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handlePrevWeek}
+                disabled={!canGoPrev}
+                title="이전 주차"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
               <Select value={selectedMonth} onValueChange={handleMonthChange}>
                 <SelectTrigger className="w-[100px]">
                   <SelectValue />
@@ -480,6 +513,17 @@ export function DashboardClient() {
                   ))}
                 </SelectContent>
               </Select>
+              
+              {/* 다음 버튼 */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleNextWeek}
+                disabled={!canGoNext}
+                title="다음 주차"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
               <Button
                 variant="outline"
                 size="icon"
@@ -493,7 +537,12 @@ export function DashboardClient() {
           </div>
         </CardHeader>
         <CardContent>
-          {gatherings.length === 0 ? (
+          {gatheringsLoading ? (
+            <div className="py-8 text-center">
+              <Loader2 className="h-6 w-6 animate-spin text-slate-400 mx-auto mb-2" />
+              <span className="text-slate-500 dark:text-slate-400">모임 데이터를 불러오는 중...</span>
+            </div>
+          ) : gatherings.length === 0 ? (
             <div className="py-8 text-center text-slate-500 dark:text-slate-400">
               해당 주차에 생성된 모임이 없습니다.
             </div>
@@ -509,6 +558,9 @@ export function DashboardClient() {
                       생성여부
                     </th>
                     <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
+                      모임 장소
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
                       예배 출석
                     </th>
                     <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
@@ -520,9 +572,9 @@ export function DashboardClient() {
                   </tr>
                 </thead>
                 <tbody>
-                  {gatherings.map((gathering, index) => (
+                  {gatherings.map((gathering) => (
                     <tr
-                      key={index}
+                      key={gathering.groupId}
                       className={`border-b border-slate-100 dark:border-slate-800 ${
                         gathering.created 
                           ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" 
@@ -533,7 +585,7 @@ export function DashboardClient() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-slate-900 dark:text-white">
-                            {gathering.group}
+                            {gathering.groupName}
                           </span>
                           {gathering.created && (
                             <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -550,6 +602,9 @@ export function DashboardClient() {
                             X
                           </span>
                         )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                        {gathering.place || "-"}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -576,18 +631,14 @@ export function DashboardClient() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        {(() => {
-                          const note = mockSpecialNotes[selectedWeek]?.[gathering.group];
-                          if (note) {
-                            return (
-                              <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                                <AlertCircle className="h-3.5 w-3.5" />
-                                <span className="text-xs">{note}</span>
-                              </div>
-                            );
-                          }
-                          return <span className="text-slate-300 dark:text-slate-600">-</span>;
-                        })()}
+                        {gathering.specialNote ? (
+                          <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                            <AlertCircle className="h-3.5 w-3.5" />
+                            <span className="text-xs">{gathering.specialNote}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 dark:text-slate-600">-</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -610,25 +661,31 @@ export function DashboardClient() {
                     <UsersRound className="h-4 w-4 text-slate-600 dark:text-slate-300" />
                   </div>
                   <div>
-                    <div className="text-base font-bold text-slate-900 dark:text-white">{selectedGroup?.group}</div>
+                    <div className="text-base font-bold text-slate-900 dark:text-white">
+                      {gatheringDetail?.groupName || selectedGathering?.groupName}
+                    </div>
                     <div className="text-xs font-normal text-slate-500">
                       {weeks.find((w) => w.key === selectedWeek)?.label}
                     </div>
                   </div>
                 </div>
-                {/* 출석 요약 - 간소화 */}
-                {selectedGroup && (
+                {/* 출석 요약 */}
+                {gatheringDetail && (
                   <div className="flex items-center gap-3 text-sm">
                     <div className="flex items-center gap-1.5">
                       <Church className="h-3.5 w-3.5 text-blue-500" />
-                      <span className="font-semibold text-slate-700 dark:text-slate-200">{selectedGroup.worshipAttendance}</span>
-                      <span className="text-slate-400 text-xs">{selectedGroup.worshipRate}</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">
+                        {gatheringDetail.stats.worshipAttended}/{gatheringDetail.stats.totalMembers}
+                      </span>
+                      <span className="text-slate-400 text-xs">{gatheringDetail.stats.worshipRate}%</span>
                     </div>
                     <div className="h-4 w-px bg-slate-300 dark:bg-slate-600" />
                     <div className="flex items-center gap-1.5">
                       <HandHeart className="h-3.5 w-3.5 text-emerald-500" />
-                      <span className="font-semibold text-slate-700 dark:text-slate-200">{selectedGroup.gatheringAttendance}</span>
-                      <span className="text-slate-400 text-xs">{selectedGroup.gatheringRate}</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">
+                        {gatheringDetail.stats.gatheringAttended}/{gatheringDetail.stats.totalMembers}
+                      </span>
+                      <span className="text-slate-400 text-xs">{gatheringDetail.stats.gatheringRate}%</span>
                     </div>
                   </div>
                 )}
@@ -638,152 +695,200 @@ export function DashboardClient() {
           
           {/* 스크롤 영역 */}
           <div className="flex-1 overflow-y-auto px-6 py-4">
-            {/* 리더 코멘트 */}
-            {selectedGroup && (
-              <div className="mb-5">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">리더 코멘트</h3>
-                <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3 text-sm text-slate-600 dark:text-slate-300">
-                  {mockGatheringComments[selectedWeek]?.[selectedGroup.group]?.leaderComment || (
-                    <span className="text-slate-400 italic">리더 코멘트가 없습니다</span>
-                  )}
-                </div>
+            {detailLoading ? (
+              <div className="py-12 text-center">
+                <Loader2 className="h-6 w-6 animate-spin text-slate-400 mx-auto mb-2" />
+                <span className="text-slate-500">상세 정보를 불러오는 중...</span>
               </div>
-            )}
-            
-            {/* 목회자 코멘트 */}
-            {selectedGroup && (
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">목회자 코멘트</h3>
-                <Textarea
-                  placeholder="목회자 코멘트를 입력하세요..."
-                  className="min-h-[80px] resize-none"
-                  defaultValue={mockGatheringComments[selectedWeek]?.[selectedGroup.group]?.pastorComment || ""}
-                />
-                <div className="mt-2 flex justify-end">
-                  <Button size="sm" className="bg-slate-800 hover:bg-slate-700">
-                    저장
-                  </Button>
+            ) : gatheringDetail ? (
+              <>
+                {/* 리더 코멘트 */}
+                <div className="mb-5">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">리더 코멘트</h3>
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3 text-sm text-slate-600 dark:text-slate-300">
+                    {gatheringDetail.leaderComment || (
+                      <span className="text-slate-400 italic">리더 코멘트가 없습니다</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-            
-            {/* 멤버 목록 */}
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-              소모임원 ({selectedMembers.length}명)
-            </h3>
-            <div className="space-y-3">
-              {selectedMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className={`rounded-lg border transition-all ${
-                    member.gatheringAttendance
-                      ? "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/50"
-                      : "border-dashed border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-900/30"
-                  }`}
-                >
-                  {/* 멤버 헤더 */}
-                  <div className={`flex items-center justify-between p-3 ${
-                    member.gatheringAttendance && (member.story || member.weeklyGoal || member.prayerRequests.length > 0)
-                      ? "border-b border-slate-100 dark:border-slate-700"
-                      : ""
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                        member.role === "LEADER"
-                          ? "bg-slate-800 text-white dark:bg-slate-600"
-                          : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
+                
+                {/* 목회자 코멘트 */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">목회자 코멘트</h3>
+                  <Textarea
+                    placeholder="목회자 코멘트를 입력하세요..."
+                    className="min-h-[80px] resize-none"
+                    value={pastorComment}
+                    onChange={(e) => setPastorComment(e.target.value)}
+                  />
+                  <div className="mt-2 flex items-center justify-end gap-3">
+                    {commentSaved && (
+                      <span className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400 animate-in fade-in slide-in-from-right-2">
+                        <Check className="h-4 w-4" />
+                        목회자 코멘트가 저장되었습니다
+                      </span>
+                    )}
+                    <Button 
+                      size="sm" 
+                      className={commentSaved 
+                        ? "bg-emerald-600 hover:bg-emerald-700" 
+                        : "bg-slate-800 hover:bg-slate-700"
+                      }
+                      onClick={saveAdminComment}
+                      disabled={savingComment}
+                    >
+                      {savingComment ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                          저장중...
+                        </>
+                      ) : commentSaved ? (
+                        <>
+                          <Check className="h-3 w-3 mr-1" />
+                          저장됨
+                        </>
+                      ) : (
+                        "저장"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* 멤버 목록 */}
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  소모임원 ({gatheringDetail.members.length}명)
+                </h3>
+                <div className="space-y-3">
+                  {gatheringDetail.members.map((member) => (
+                    <div
+                      key={member.id}
+                      className={`rounded-lg border transition-all ${
+                        member.gatheringAttendance
+                          ? "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/50"
+                          : "border-dashed border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-900/30"
+                      }`}
+                    >
+                      {/* 멤버 헤더 */}
+                      <div className={`flex items-center justify-between p-3 ${
+                        member.gatheringAttendance && (member.story || member.goal || member.prayers.length > 0)
+                          ? "border-b border-slate-100 dark:border-slate-700"
+                          : ""
                       }`}>
-                        <User className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-slate-900 dark:text-white">
-                            {member.name}
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                            <User className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-slate-900 dark:text-white">
+                                {member.memberName}
+                              </span>
+                              <span className="text-xs text-slate-400">
+                                {member.sex === "M" ? "남" : member.sex === "F" ? "여" : ""}
+                                {member.sex && member.birthday && " · "}
+                                {member.birthday && member.birthday.replace(/-/g, ".")}
+                              </span>
+                            </div>
+                            {!member.gatheringAttendance && (
+                              <span className="text-xs text-slate-400">소모임 불참</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className={`flex items-center gap-1 rounded-full px-2 py-1 ${
+                            member.worshipAttendance
+                              ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                              : "bg-slate-100 text-slate-400 dark:bg-slate-700"
+                          }`}>
+                            {member.worshipAttendance ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                            예배
                           </span>
-                          {member.role === "LEADER" && (
-                            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-slate-600">
-                              리더
-                            </span>
+                          <span className={`flex items-center gap-1 rounded-full px-2 py-1 ${
+                            member.gatheringAttendance
+                              ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                              : "bg-slate-100 text-slate-400 dark:bg-slate-700"
+                          }`}>
+                            {member.gatheringAttendance ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                            소모임
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* 나눔 / 한주목표 / 기도제목 */}
+                      {member.gatheringAttendance && (member.story || member.goal || member.prayers.length > 0) && (
+                        <div className="space-y-2 p-3 text-sm">
+                          {member.story && (
+                            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3">
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <BookOpen className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">나눔</span>
+                              </div>
+                              <p className="text-slate-700 dark:text-slate-200 leading-relaxed pl-6">
+                                {member.story}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {member.goal && (
+                            <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3">
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <Target className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">한주 목표</span>
+                              </div>
+                              <p className="text-slate-700 dark:text-slate-200 leading-relaxed pl-6">
+                                {member.goal}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {member.prayers.length > 0 && (
+                            <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-3">
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <HandHeart className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                <span className="text-xs font-semibold text-purple-700 dark:text-purple-400">기도제목</span>
+                              </div>
+                              <ul className="space-y-1.5 pl-6">
+                                {member.prayers.map((prayer) => (
+                                  <li
+                                    key={prayer.id}
+                                    className="flex items-start gap-2 text-slate-700 dark:text-slate-200 leading-relaxed"
+                                  >
+                                    {prayer.isAnswered ? (
+                                      <Check className="h-4 w-4 mt-0.5 shrink-0 text-emerald-500" />
+                                    ) : (
+                                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-400" />
+                                    )}
+                                    <span className={prayer.isAnswered ? "text-emerald-600 dark:text-emerald-400" : ""}>
+                                      {prayer.content}
+                                      {prayer.isAnswered && <span className="ml-1 text-xs">(응답됨)</span>}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
                           )}
                         </div>
-                        {!member.gatheringAttendance && (
-                          <span className="text-xs text-slate-400">소모임 불참</span>
-                        )}
-                      </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className={`flex items-center gap-1 rounded-full px-2 py-1 ${
-                        member.worshipAttendance
-                          ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                          : "bg-slate-100 text-slate-400 dark:bg-slate-700"
-                      }`}>
-                        {member.worshipAttendance ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                        예배
-                      </span>
-                      <span className={`flex items-center gap-1 rounded-full px-2 py-1 ${
-                        member.gatheringAttendance
-                          ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : "bg-slate-100 text-slate-400 dark:bg-slate-700"
-                      }`}>
-                        {member.gatheringAttendance ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                        소모임
-                      </span>
-                    </div>
-                  </div>
+                  ))}
                   
-                  {/* 나눔 / 한주목표 / 기도제목 */}
-                  {member.gatheringAttendance && (member.story || member.weeklyGoal || member.prayerRequests.length > 0) && (
-                    <div className="space-y-2.5 p-3 text-sm">
-                      {member.story && (
-                        <div>
-                          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">나눔</p>
-                          <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
-                            {member.story}
-                          </p>
-                        </div>
-                      )}
-                      
-                      {member.weeklyGoal && (
-                        <div>
-                          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">한주 목표</p>
-                          <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
-                            {member.weeklyGoal}
-                          </p>
-                        </div>
-                      )}
-                      
-                      {member.prayerRequests.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">기도제목</p>
-                          <ul className="space-y-1">
-                            {member.prayerRequests.map((prayer, idx) => (
-                              <li
-                                key={idx}
-                                className="flex items-start gap-2 text-slate-700 dark:text-slate-200 leading-relaxed"
-                              >
-                                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-slate-400" />
-                                {prayer}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                  {gatheringDetail.members.length === 0 && (
+                    <div className="py-8 text-center">
+                      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                        <Users className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        소모임원 데이터가 없습니다
+                      </p>
                     </div>
                   )}
                 </div>
-              ))}
-              
-              {selectedMembers.length === 0 && (
-                <div className="py-8 text-center">
-                  <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-                    <Users className="h-5 w-5 text-slate-400" />
-                  </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    소모임원 데이터가 없습니다
-                  </p>
-                </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <div className="py-8 text-center text-slate-500">
+                데이터를 불러올 수 없습니다
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>

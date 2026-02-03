@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,22 +15,30 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, ChevronRight } from "lucide-react";
+import { Plus, Search, ChevronRight, Loader2 } from "lucide-react";
 
-// TODO: 실제 DB 연동
-const mockMembers = [
-  { id: "1", name: "강소정", email: "kang@example.com", phone: "010-1234-5678", group: "강소정 셀", role: "LEADER" },
-  { id: "2", name: "변재욱", email: "byun@example.com", phone: "010-2345-6789", group: "강소정 셀", role: "MEMBER" },
-  { id: "3", name: "서현제", email: "seo@example.com", phone: "010-3456-7890", group: "강소정 셀", role: "MEMBER" },
-  { id: "4", name: "강혜정", email: "khj@example.com", phone: "010-4567-8901", group: "강혜정 셀", role: "LEADER" },
-  { id: "5", name: "박준성", email: "park@example.com", phone: "010-5678-9012", group: "강혜정 셀", role: "MEMBER" },
-  { id: "6", name: "김민지", email: "kim@example.com", phone: "010-6789-0123", group: "김민지 셀", role: "LEADER" },
-  { id: "7", name: "류희재", email: "ryu@example.com", phone: "010-7890-1234", group: "류희재 셀", role: "LEADER" },
-  { id: "8", name: "박예슬", email: "pye@example.com", phone: "010-8901-2345", group: "박예슬 셀", role: "LEADER" },
-];
+interface Member {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  sex: string;
+  birthday: string;
+  address: string;
+  occupation: string;
+  baptismStatus: string;
+  mbti: string;
+  description: string;
+  profileUrl: string;
+  primaryGroup: string;
+  role: string;
+}
 
 export function MembersClient() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [members, setMembers] = useState<Member[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newMember, setNewMember] = useState({
     name: "",
@@ -38,13 +46,39 @@ export function MembersClient() {
     phone: "",
   });
 
-  const filteredMembers = mockMembers.filter(
-    (member) =>
-      member.name.includes(searchQuery) ||
-      member.email.includes(searchQuery) ||
-      member.phone.includes(searchQuery) ||
-      member.group.includes(searchQuery)
-  );
+  // 검색 API 호출
+  const searchMembers = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setMembers([]);
+      setHasSearched(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setHasSearched(true);
+    try {
+      const res = await fetch(`/api/members?q=${encodeURIComponent(query)}`);
+      const json = await res.json();
+      if (json.success) {
+        setMembers(json.data.members);
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // 엔터키 또는 검색 버튼으로 검색
+  const handleSearch = () => {
+    searchMembers(searchQuery);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,14 +169,24 @@ export function MembersClient() {
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <Input
-          placeholder="이름, 이메일, 전화번호, 그룹으로 검색..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex gap-2 max-w-lg">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            placeholder="이름, 이메일, 전화번호로 검색..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="pl-10"
+          />
+        </div>
+        <Button 
+          onClick={handleSearch} 
+          disabled={isLoading || !searchQuery.trim()}
+          className="bg-indigo-600 hover:bg-indigo-700"
+        >
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "검색"}
+        </Button>
       </div>
 
       {/* Members Table */}
@@ -152,76 +196,123 @@ export function MembersClient() {
             멤버 목록
           </CardTitle>
           <CardDescription>
-            총 {filteredMembers.length}명의 멤버
+            {hasSearched ? `검색 결과: ${members.length}명` : "이름, 이메일, 전화번호로 검색해주세요"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700">
-                  <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
-                    이름
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
-                    이메일
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
-                    전화번호
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
-                    소속 그룹
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
-                    역할
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium text-slate-500 dark:text-slate-400">
-                    
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredMembers.map((member) => (
-                  <tr
-                    key={member.id}
-                    className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                  >
-                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
-                      {member.name}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
-                      {member.email}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
-                      {member.phone}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
-                      {member.group}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        variant={member.role === "LEADER" ? "default" : "secondary"}
-                        className={
-                          member.role === "LEADER"
-                            ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
-                            : ""
-                        }
-                      >
-                        {member.role === "LEADER" ? "리더" : "멤버"}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link href={`/members/${member.id}`}>
-                        <Button variant="ghost" size="sm">
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                    </td>
+          {/* 로딩 중 */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            </div>
+          )}
+
+          {/* 검색 전 */}
+          {!isLoading && !hasSearched && (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+              <Search className="h-12 w-12 mb-4" />
+              <p>검색어를 입력하고 검색 버튼을 눌러주세요</p>
+            </div>
+          )}
+
+          {/* 검색 결과 없음 */}
+          {!isLoading && hasSearched && members.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+              <p>검색 결과가 없습니다</p>
+            </div>
+          )}
+
+          {/* 검색 결과 */}
+          {!isLoading && hasSearched && members.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                    <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
+                      이름
+                    </th>
+                    <th className="px-4 py-3 text-center font-medium text-slate-500 dark:text-slate-400">
+                      성별
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
+                      생년월일
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
+                      전화번호
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
+                      주소
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
+                      세례여부
+                    </th>
+                    <th className="px-4 py-3 text-center font-medium text-slate-500 dark:text-slate-400">
+                      MBTI
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
+                      소속 그룹
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
+                      설명
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium text-slate-500 dark:text-slate-400">
+                      
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {members.map((member) => (
+                    <tr
+                      key={member.id}
+                      className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    >
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
+                        {member.name}
+                      </td>
+                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400">
+                        {member.sex === "M" ? "남" : member.sex === "F" ? "여" : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        {member.birthday ? member.birthday.replace(/-/g, ".") : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        {member.phone || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-[150px] truncate">
+                        {member.address || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        {member.baptismStatus || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400">
+                        {member.mbti || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        <div className="flex items-center gap-2">
+                          {member.primaryGroup || "-"}
+                          {member.role === "LEADER" && (
+                            <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
+                              리더
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-[150px] truncate">
+                        {member.description || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/members/${member.id}`}>
+                          <Button variant="ghost" size="sm">
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
