@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# npm ci with cache mount (빌드 속도 향상)
+# npm ci with cache mount (BuildKit 캐시로 다운로드 재사용)
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
 
@@ -17,7 +17,7 @@ RUN npx prisma generate
 # Source code (여기서부터는 코드 바뀌면 재실행)
 COPY . .
 
-# Build with cache mount (next cache 재사용)
+# Build with cache mount (Next 빌드 캐시 재사용)
 RUN --mount=type=cache,target=/app/.next/cache \
     npm run build
 
