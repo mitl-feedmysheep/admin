@@ -37,10 +37,10 @@ jobs:
           docker images intotheheaven-admin --format '{{.Tag}}' | grep -v latest | xargs -I {} docker rmi intotheheaven-admin:{} 2>/dev/null || true
 
       - name: Build Docker image
+        env:
+          DOCKER_BUILDKIT: "1"
         run: |
-          docker buildx build \
-            --builder buildkit \
-            --load \
+          docker build \
             -t intotheheaven-admin:${{ github.sha }} \
             -t intotheheaven-admin:latest \
             .
