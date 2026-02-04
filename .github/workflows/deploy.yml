@@ -39,6 +39,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker buildx build \
+            --builder buildkit \
             --load \
             -t intotheheaven-admin:${{ github.sha }} \
             -t intotheheaven-admin:latest \
