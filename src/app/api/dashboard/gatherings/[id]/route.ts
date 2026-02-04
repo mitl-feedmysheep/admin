@@ -96,7 +96,6 @@ export async function GET(
       gatheringAttendance: gm.gathering_attendance,
       story: gm.story || "",
       goal: gm.goal || "",
-      leaderComment: gm.leader_comment || "",
       prayers: gm.prayers?.map((p) => ({
         id: p.id,
         content: p.prayer_request,
