@@ -1,17 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { createToken, setSessionCookie } from "@/lib/auth";
+import { createToken, setSessionCookie, verifyToken } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { memberId, churchId } = body;
+    const { memberId: rawMemberId, churchId } = body as {
+      memberId?: string;
+      churchId?: string;
+    };
 
-    if (!memberId || !churchId) {
+    if (!churchId) {
       return NextResponse.json(
-        { error: "멤버 ID와 교회 ID가 필요합니다." },
+        { error: "교회 ID가 필요합니다." },
         { status: 400 }
       );
+    }
+
+    // memberId가 없으면(이미 로그인된 상태) 세션 토큰에서 추출
+    let memberId = rawMemberId;
+    if (!memberId) {
+      const token = request.cookies.get("admin_token")?.value;
+      const session = token ? await verifyToken(token) : null;
+      memberId = session?.memberId;
+    }
+
+    if (!memberId) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
     // 1. 멤버 조회

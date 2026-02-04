@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Simple filled church favicon (works well at small sizes) -->
+  <rect width="64" height="64" rx="14" fill="#4f46e5"/>
+  <!-- building -->
+  <path d="M18 50V31.5c0-1.2.6-2.3 1.6-3l10.4-7.3V14a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v7.2l10.4 7.3c1 .7 1.6 1.8 1.6 3V50H18z" fill="#ffffff" opacity="0.95"/>
+  <!-- door -->
+  <path d="M28 50V40.5c0-2.2 1.8-4 4-4s4 1.8 4 4V50H28z" fill="#4f46e5"/>
+  <!-- cross -->
+  <path d="M32 10c.9 0 1.6.7 1.6 1.6V15h3.4c.9 0 1.6.7 1.6 1.6s-.7 1.6-1.6 1.6h-3.4v3.4c0 .9-.7 1.6-1.6 1.6s-1.6-.7-1.6-1.6v-3.4H27c-.9 0-1.6-.7-1.6-1.6s.7-1.6 1.6-1.6h3.4v-3.4C30.4 10.7 31.1 10 32 10z" fill="#ffffff"/>
+</svg>

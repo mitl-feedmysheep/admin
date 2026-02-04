@@ -417,7 +417,7 @@ export function DashboardClient() {
             대시보드
           </h1>
           <p className="text-slate-500 dark:text-slate-400">
-            IntoTheHeaven 관리자 현황을 한눈에 확인하세요
+            현황을 한눈에 확인하세요
           </p>
         </div>
         <Select value={selectedYear} onValueChange={handleYearChange}>
