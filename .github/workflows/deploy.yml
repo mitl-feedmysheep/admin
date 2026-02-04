@@ -33,14 +33,15 @@ jobs:
 
       - name: Remove old images
         run: |
-          # 이전 feedmysheep-admin 이미지 삭제 (latest 제외)
-          docker images feedmysheep-admin --format '{{.Tag}}' | grep -v latest | xargs -I {} docker rmi feedmysheep-admin:{} 2>/dev/null || true
+          # 이전 intotheheaven-admin 이미지 삭제 (latest 제외)
+          docker images intotheheaven-admin --format '{{.Tag}}' | grep -v latest | xargs -I {} docker rmi intotheheaven-admin:{} 2>/dev/null || true
 
       - name: Build Docker image
         run: |
-          DOCKER_BUILDKIT=1 docker build \
-            -t feedmysheep-admin:${{ github.sha }} \
-            -t feedmysheep-admin:latest \
+          docker buildx build \
+            --load \
+            -t intotheheaven-admin:${{ github.sha }} \
+            -t intotheheaven-admin:latest \
             .
 
       # DockerHub push 비활성화 (필요시 주석 해제)
@@ -56,7 +57,7 @@ jobs:
           fi
 
       - name: Stop existing container
-        run: docker rm -f feedmysheep-admin 2>/dev/null || true
+        run: docker rm -f intotheheaven-admin 2>/dev/null || true
 
       - name: Start container with Doppler env
         env:
@@ -65,11 +66,11 @@ jobs:
           ENV_ARGS=$(doppler secrets download --no-file --format json | jq -r 'to_entries | map("-e " + .key + "=\"" + .value + "\"") | join(" ")')
           
           eval docker run -d \
-            --name feedmysheep-admin \
+            --name intotheheaven-admin \
             --restart unless-stopped \
             -p 3000:3000 \
             $ENV_ARGS \
-            feedmysheep-admin:${{ github.sha }}
+            intotheheaven-admin:${{ github.sha }}
 
       - name: Health check
         run: |
