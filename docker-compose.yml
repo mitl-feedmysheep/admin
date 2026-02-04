@@ -1,0 +1,7 @@
+services:
+  app:
+    image: ${APP_IMAGE:-feedmysheep-admin:latest}
+    container_name: feedmysheep-admin
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
