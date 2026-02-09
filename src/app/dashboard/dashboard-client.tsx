@@ -190,6 +190,7 @@ export function DashboardClient() {
   // 생일 상태
   const [birthdayData, setBirthdayData] = useState<BirthdayData | null>(null);
   const [birthdayLoading, setBirthdayLoading] = useState(true);
+  const [birthdayOffset, setBirthdayOffset] = useState(0);
 
   // 목회자 코멘트 상태
   const [pastorComment, setPastorComment] = useState("");
@@ -197,10 +198,10 @@ export function DashboardClient() {
   const [commentSaved, setCommentSaved] = useState(false);
 
   // 생일 데이터 가져오기
-  const fetchBirthdays = useCallback(async () => {
+  const fetchBirthdays = useCallback(async (offset: number) => {
     setBirthdayLoading(true);
     try {
-      const res = await fetch("/api/dashboard/birthdays");
+      const res = await fetch(`/api/dashboard/birthdays?offset=${offset}`);
       const json = await res.json();
       if (json.success) {
         setBirthdayData(json.data);
@@ -297,10 +298,10 @@ export function DashboardClient() {
     fetchStats();
   }, [fetchStats]);
 
-  // 생일 데이터 (페이지 로드 시 한 번)
+  // 생일 데이터 (offset 변경 시)
   useEffect(() => {
-    fetchBirthdays();
-  }, [fetchBirthdays]);
+    fetchBirthdays(birthdayOffset);
+  }, [fetchBirthdays, birthdayOffset]);
 
   // 주차 변경 시 모임 데이터 다시 가져오기
   useEffect(() => {
@@ -506,19 +507,58 @@ export function DashboardClient() {
         ))}
       </div>
 
-      {/* 이번 주 생일 */}
+      {/* 주간 생일 */}
       <Card className="border-slate-200 dark:border-slate-800">
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Cake className="h-5 w-5 text-pink-500" />
-            <CardTitle className="text-slate-900 dark:text-white">
-              이번 주 생일
-            </CardTitle>
-            {birthdayData && (
-              <span className="text-xs text-slate-400">
-                ({birthdayData.weekRange.start} ~ {birthdayData.weekRange.end})
-              </span>
-            )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Cake className="h-5 w-5 text-pink-500" />
+              <CardTitle className="text-slate-900 dark:text-white">
+                {birthdayOffset === 0
+                  ? "이번 주 생일"
+                  : birthdayOffset === -1
+                    ? "지난 주 생일"
+                    : birthdayOffset === 1
+                      ? "다음 주 생일"
+                      : `${birthdayOffset > 0 ? "+" : ""}${birthdayOffset}주 생일`}
+              </CardTitle>
+              {birthdayData && (
+                <span className="text-xs text-slate-400">
+                  ({birthdayData.weekRange.start} ~ {birthdayData.weekRange.end})
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setBirthdayOffset((v) => v - 1)}
+                disabled={birthdayLoading}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {birthdayOffset !== 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setBirthdayOffset(0)}
+                  disabled={birthdayLoading}
+                >
+                  이번 주
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setBirthdayOffset((v) => v + 1)}
+                disabled={birthdayLoading}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -528,7 +568,7 @@ export function DashboardClient() {
               <span className="text-sm text-slate-400">로딩중...</span>
             </div>
           ) : !birthdayData || birthdayData.members.length === 0 ? (
-            <p className="py-2 text-sm text-slate-400">이번 주 생일인 멤버가 없습니다.</p>
+            <p className="py-2 text-sm text-slate-400">해당 주에 생일인 멤버가 없습니다.</p>
           ) : (
             <div className="flex flex-wrap gap-3">
               {birthdayData.members.map((m) => (

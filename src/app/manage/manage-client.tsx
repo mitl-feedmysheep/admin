@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, UsersRound, UserCog, Plus, Copy, Check, UserCheck, Clock, Search, UserMinus, X, Church, Users } from "lucide-react";
+import { UserPlus, UsersRound, UserCog, Plus, Copy, Check, UserCheck, Clock, Search, UserMinus, X, Church, Users, Eye, EyeOff, Loader2 } from "lucide-react";
 
 // Mock 소모임 데이터
 const mockGroups = [
@@ -30,17 +30,38 @@ const mockMembers = [
   { id: "8", name: "최민수", email: "choi@example.com", sex: "MALE", birthday: "1989-04-28", phone: "010-8901-2345", group: "강혜정 셀", role: "MEMBER" },
 ];
 
-// Mock 편입 요청 데이터
-const mockJoinRequests = [
-  { id: "1", name: "홍길동", sex: "MALE", birthday: "1990-05-20", email: "hong@example.com", phone: "010-1111-2222", requestedAt: "2026-01-28", status: "pending" },
-  { id: "2", name: "김철수", sex: "MALE", birthday: "1988-11-15", email: "chul@example.com", phone: "010-3333-4444", requestedAt: "2026-01-27", status: "pending" },
-];
+// 편입 요청 타입
+interface JoinRequest {
+  id: string;
+  memberId: string;
+  name: string;
+  email: string;
+  sex: string;
+  birthday: string;
+  phone: string;
+  requestedAt: string;
+}
+
+// 히스토리 타입
+interface JoinRequestHistory {
+  id: string;
+  memberId: string;
+  name: string;
+  email: string;
+  sex: string;
+  birthday: string;
+  phone: string;
+  status: "ACCEPTED" | "DECLINED";
+  completedBy: string;
+  requestedAt: string;
+  completedAt: string;
+}
 
 export function ManageClient() {
   // 상위 탭 상태
   const [mainTab, setMainTab] = useState("church");
   // 하위 탭 상태
-  const [churchSubTab, setChurchSubTab] = useState("create-account");
+  const [churchSubTab, setChurchSubTab] = useState("join-requests");
   const [groupSubTab, setGroupSubTab] = useState("create-group");
   
   // 계정 생성 폼 상태
@@ -76,6 +97,20 @@ export function ManageClient() {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   
+  // 비밀번호 보이기/숨기기 상태
+  const [showPassword, setShowPassword] = useState(false);
+
+  // 편입 요청 상태
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [joinRequestsLoading, setJoinRequestsLoading] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+
+  // 편입 히스토리 상태
+  const [joinHistory, setJoinHistory] = useState<JoinRequestHistory[]>([]);
+  const [joinHistoryLoading, setJoinHistoryLoading] = useState(false);
+  const [joinRequestTab, setJoinRequestTab] = useState<"pending" | "history">("pending");
+  
   // 멤버 제외용 상태
   const [removeGroupFilter, setRemoveGroupFilter] = useState("");
 
@@ -100,16 +135,43 @@ export function ManageClient() {
     });
   }, [removeGroupFilter]);
 
-  const handleCreateAccount = (e: React.FormEvent) => {
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: API 호출
-    console.log("Creating account:", accountForm);
-    
-    // 성공 화면 표시
-    setAccountCreated({
-      email: accountForm.email,
-      password: accountForm.password,
-    });
+    if (!isFormValid || isCreating) return;
+
+    setIsCreating(true);
+    try {
+      // 저장 시 휴대폰번호에서 하이픈 제거
+      const payload = {
+        ...accountForm,
+        phone: stripPhoneHyphens(accountForm.phone),
+      };
+
+      const res = await fetch("/api/manage/create-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "계정 생성에 실패했습니다.");
+        return;
+      }
+
+      // 성공 화면 표시
+      setAccountCreated({
+        email: accountForm.email,
+        password: accountForm.password,
+      });
+    } catch {
+      alert("계정 생성 중 오류가 발생했습니다.");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleCopyCredentials = async () => {
@@ -177,17 +239,128 @@ export function ManageClient() {
     alert(`${member.name}님이 소모임에서 제외되었습니다.`);
   };
 
-  const handleApproveRequest = (requestId: string) => {
-    // TODO: API 호출
-    console.log("Approving request:", requestId);
-    alert("편입 요청이 승인되었습니다!");
+  // 편입 요청 목록 불러오기
+  const fetchJoinRequests = useCallback(async () => {
+    setJoinRequestsLoading(true);
+    try {
+      const res = await fetch("/api/manage/join-requests");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setJoinRequests(data.data.requests);
+      }
+    } catch {
+      console.error("편입 요청 목록 불러오기 실패");
+    } finally {
+      setJoinRequestsLoading(false);
+    }
+  }, []);
+
+  // 히스토리 목록 불러오기
+  const fetchJoinHistory = useCallback(async () => {
+    setJoinHistoryLoading(true);
+    try {
+      const res = await fetch("/api/manage/join-requests/history");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setJoinHistory(data.data.requests);
+      }
+    } catch {
+      console.error("편입 히스토리 불러오기 실패");
+    } finally {
+      setJoinHistoryLoading(false);
+    }
+  }, []);
+
+  // 컴포넌트 마운트 시 편입 요청 목록 불러오기
+  useEffect(() => {
+    fetchJoinRequests();
+    fetchJoinHistory();
+  }, [fetchJoinRequests, fetchJoinHistory]);
+
+  const handleApproveRequest = async (requestId: string) => {
+    setApprovingId(requestId);
+    try {
+      const res = await fetch("/api/manage/join-requests/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "승인에 실패했습니다.");
+        return;
+      }
+
+      // 목록에서 제거 + 히스토리 갱신
+      setJoinRequests((prev) => prev.filter((r) => r.id !== requestId));
+      fetchJoinHistory();
+    } catch {
+      alert("승인 처리 중 오류가 발생했습니다.");
+    } finally {
+      setApprovingId(null);
+    }
   };
 
-  const handleRejectRequest = (requestId: string) => {
-    // TODO: API 호출
-    console.log("Rejecting request:", requestId);
-    alert("편입 요청이 거절되었습니다.");
+  const handleRejectRequest = async (requestId: string) => {
+    setRejectingId(requestId);
+    try {
+      const res = await fetch("/api/manage/join-requests/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "거절에 실패했습니다.");
+        return;
+      }
+
+      // 목록에서 제거 + 히스토리 갱신
+      setJoinRequests((prev) => prev.filter((r) => r.id !== requestId));
+      fetchJoinHistory();
+    } catch {
+      alert("거절 처리 중 오류가 발생했습니다.");
+    } finally {
+      setRejectingId(null);
+    }
   };
+
+  // 휴대폰번호 포맷팅 함수 (자동 하이픈 삽입)
+  const formatPhoneNumber = (value: string) => {
+    // 숫자만 추출
+    const numbers = value.replace(/[^0-9]/g, "");
+    
+    // 최대 11자리로 제한
+    const limited = numbers.slice(0, 11);
+    
+    // 포맷팅 적용
+    if (limited.length <= 3) {
+      return limited;
+    } else if (limited.length <= 7) {
+      return `${limited.slice(0, 3)}-${limited.slice(3)}`;
+    } else {
+      return `${limited.slice(0, 3)}-${limited.slice(3, 7)}-${limited.slice(7)}`;
+    }
+  };
+
+  // 휴대폰번호에서 하이픈 제거 (저장용)
+  const stripPhoneHyphens = (phone: string) => {
+    return phone.replace(/-/g, "");
+  };
+
+  // 필수 필드 유효성 검사
+  const isFormValid = useMemo(() => {
+    return (
+      accountForm.name.trim() !== "" &&
+      accountForm.email.trim() !== "" &&
+      accountForm.password.trim() !== "" &&
+      accountForm.sex !== "" &&
+      accountForm.birthday !== "" &&
+      stripPhoneHyphens(accountForm.phone).length >= 10
+    );
+  }, [accountForm.name, accountForm.email, accountForm.password, accountForm.sex, accountForm.birthday, accountForm.phone]);
 
   // 날짜 포맷팅 함수
   const formatBirthday = (birthday: string) => {
@@ -243,23 +416,23 @@ export function ManageClient() {
           <Tabs value={churchSubTab} onValueChange={setChurchSubTab}>
             <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
               <TabsTrigger 
-                value="create-account" 
-                className="gap-2 transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
-              >
-                <UserPlus className="h-4 w-4" />
-                계정 생성 및 편입
-              </TabsTrigger>
-              <TabsTrigger 
                 value="join-requests" 
                 className="gap-2 transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
               >
                 <UserCheck className="h-4 w-4" />
                 교회 편입 관리
-                {mockJoinRequests.length > 0 && (
+                {joinRequests.length > 0 && (
                   <Badge className="ml-1 bg-red-500 text-white text-xs px-1.5 py-0">
-                    {mockJoinRequests.length}
+                    {joinRequests.length}
                   </Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="create-account" 
+                className="gap-2 transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
+              >
+                <UserPlus className="h-4 w-4" />
+                계정 생성 및 편입
               </TabsTrigger>
             </TabsList>
 
@@ -354,17 +527,32 @@ export function ManageClient() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="password">비밀번호 *</Label>
-                          <Input
-                            id="password"
-                            type="password"
-                            value={accountForm.password}
-                            onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
-                            placeholder="비밀번호를 입력하세요"
-                            required
-                          />
+                          <div className="relative">
+                            <Input
+                              id="password"
+                              type={showPassword ? "text" : "password"}
+                              value={accountForm.password}
+                              onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
+                              placeholder="비밀번호를 입력하세요"
+                              required
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                              tabIndex={-1}
+                            >
+                              {showPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="sex">성별</Label>
+                          <Label htmlFor="sex">성별 <span className="text-red-500">*</span></Label>
                           <Select value={accountForm.sex} onValueChange={(v) => setAccountForm({ ...accountForm, sex: v })}>
                             <SelectTrigger>
                               <SelectValue placeholder="성별 선택" />
@@ -376,71 +564,77 @@ export function ManageClient() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="birthday">생년월일</Label>
+                          <Label htmlFor="birthday">생년월일 <span className="text-red-500">*</span></Label>
                           <Input
                             id="birthday"
                             type="date"
                             value={accountForm.birthday}
                             onChange={(e) => setAccountForm({ ...accountForm, birthday: e.target.value })}
+                            required
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="phone">휴대폰번호</Label>
+                          <Label htmlFor="phone">휴대폰번호 <span className="text-red-500">*</span></Label>
                           <Input
                             id="phone"
                             value={accountForm.phone}
-                            onChange={(e) => setAccountForm({ ...accountForm, phone: e.target.value })}
+                            onChange={(e) => setAccountForm({ ...accountForm, phone: formatPhoneNumber(e.target.value) })}
                             placeholder="010-0000-0000"
+                            maxLength={13}
+                            required
                           />
                         </div>
                       </div>
 
-                      {/* 추가 정보 */}
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label htmlFor="address">주소</Label>
-                          <Input
-                            id="address"
-                            value={accountForm.address}
-                            onChange={(e) => setAccountForm({ ...accountForm, address: e.target.value })}
-                            placeholder="주소를 입력하세요"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="job">직업</Label>
-                          <Input
-                            id="job"
-                            value={accountForm.job}
-                            onChange={(e) => setAccountForm({ ...accountForm, job: e.target.value })}
-                            placeholder="직업을 입력하세요"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="baptized">세례여부</Label>
-                          <Select value={accountForm.baptized} onValueChange={(v) => setAccountForm({ ...accountForm, baptized: v })}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="세례여부 선택" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="YES">세례받음</SelectItem>
-                              <SelectItem value="NO">미세례</SelectItem>
-                              <SelectItem value="INFANT">유아세례</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="mbti">MBTI</Label>
-                          <Select value={accountForm.mbti} onValueChange={(v) => setAccountForm({ ...accountForm, mbti: v })}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="MBTI 선택" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {["ISTJ", "ISFJ", "INFJ", "INTJ", "ISTP", "ISFP", "INFP", "INTP", 
-                                "ESTP", "ESFP", "ENFP", "ENTP", "ESTJ", "ESFJ", "ENFJ", "ENTJ"].map((type) => (
-                                <SelectItem key={type} value={type}>{type}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                      {/* 추가 정보 (선택사항) */}
+                      <div className="pt-2">
+                        <p className="text-sm text-slate-400 dark:text-slate-500 mb-4">추가 정보 (선택사항)</p>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="address">주소</Label>
+                            <Input
+                              id="address"
+                              value={accountForm.address}
+                              onChange={(e) => setAccountForm({ ...accountForm, address: e.target.value })}
+                              placeholder="주소를 입력하세요"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="job">직업</Label>
+                            <Input
+                              id="job"
+                              value={accountForm.job}
+                              onChange={(e) => setAccountForm({ ...accountForm, job: e.target.value })}
+                              placeholder="직업을 입력하세요"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="baptized">세례여부</Label>
+                            <Select value={accountForm.baptized} onValueChange={(v) => setAccountForm({ ...accountForm, baptized: v })}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="세례여부 선택" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="YES">세례받음</SelectItem>
+                                <SelectItem value="NO">미세례</SelectItem>
+                                <SelectItem value="INFANT">유아세례</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="mbti">MBTI</Label>
+                            <Select value={accountForm.mbti} onValueChange={(v) => setAccountForm({ ...accountForm, mbti: v })}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="MBTI 선택" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {["ISTJ", "ISFJ", "INFJ", "INTJ", "ISTP", "ISFP", "INFP", "INTP", 
+                                  "ESTP", "ESFP", "ENFP", "ENTP", "ESTJ", "ESFJ", "ENFJ", "ENTJ"].map((type) => (
+                                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                       </div>
 
@@ -456,9 +650,13 @@ export function ManageClient() {
                       </div>
 
                       <div className="flex justify-end">
-                        <Button type="submit" className="gap-2 bg-slate-800 hover:bg-slate-700">
+                        <Button 
+                          type="submit" 
+                          className="gap-2 bg-slate-800 hover:bg-slate-700"
+                          disabled={!isFormValid || isCreating}
+                        >
                           <UserPlus className="h-4 w-4" />
-                          계정 생성 및 편입
+                          {isCreating ? "생성 중..." : "계정 생성 및 편입"}
                         </Button>
                       </div>
                     </form>
@@ -477,75 +675,208 @@ export function ManageClient() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {mockJoinRequests.length === 0 ? (
-                    <div className="py-12 text-center">
-                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-                        <UserCheck className="h-6 w-6 text-slate-400" />
-                      </div>
-                      <p className="text-slate-500 dark:text-slate-400">
-                        대기 중인 편입 요청이 없습니다.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {mockJoinRequests.map((request) => (
-                        <div
-                          key={request.id}
-                          className="rounded-lg border border-slate-200 p-4 dark:border-slate-700"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-4">
-                              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-lg font-medium">
-                                {request.name.charAt(0)}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-semibold text-slate-900 dark:text-white">{request.name}</p>
-                                  <Badge variant="outline" className="text-xs">
-                                    {request.sex === "MALE" ? "남성" : "여성"}
-                                  </Badge>
-                                </div>
-                                <div className="mt-1.5 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-500">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-slate-400">생년월일</span>
-                                    <span>{formatBirthday(request.birthday)}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-slate-400">이메일</span>
-                                    <span>{request.email}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-slate-400">휴대폰</span>
-                                    <span>{request.phone}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <Clock className="h-3.5 w-3.5 text-slate-400" />
-                                    <span className="text-slate-400">{request.requestedAt} 요청</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleRejectRequest(request.id)}
-                                className="text-slate-500 hover:text-red-500 hover:border-red-300"
-                              >
-                                거절
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => handleApproveRequest(request.id)}
-                                className="bg-emerald-600 hover:bg-emerald-700"
-                              >
-                                승인
-                              </Button>
-                            </div>
-                          </div>
+                  {/* 현황 / 히스토리 탭 */}
+                  <div className="flex gap-1 mb-6 rounded-lg bg-slate-100 p-1 dark:bg-slate-800 w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setJoinRequestTab("pending")}
+                      className={`relative px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                        joinRequestTab === "pending"
+                          ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
+                          : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                      }`}
+                    >
+                      대기 중
+                      {joinRequests.length > 0 && (
+                        <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-xs w-5 h-5">
+                          {joinRequests.length}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setJoinRequestTab("history")}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                        joinRequestTab === "history"
+                          ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
+                          : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                      }`}
+                    >
+                      히스토리
+                    </button>
+                  </div>
+
+                  {/* 대기 중 탭 */}
+                  {joinRequestTab === "pending" && (
+                    <>
+                      {joinRequestsLoading ? (
+                        <div className="py-12 text-center">
+                          <Loader2 className="mx-auto h-8 w-8 animate-spin text-slate-400" />
+                          <p className="mt-3 text-slate-500 dark:text-slate-400">
+                            불러오는 중...
+                          </p>
                         </div>
-                      ))}
-                    </div>
+                      ) : joinRequests.length === 0 ? (
+                        <div className="py-12 text-center">
+                          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                            <UserCheck className="h-6 w-6 text-slate-400" />
+                          </div>
+                          <p className="text-slate-500 dark:text-slate-400">
+                            대기 중인 편입 요청이 없습니다.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {joinRequests.map((request) => (
+                            <div
+                              key={request.id}
+                              className="rounded-lg border border-slate-200 p-4 dark:border-slate-700"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-4">
+                                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-lg font-medium">
+                                    {request.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-semibold text-slate-900 dark:text-white">{request.name}</p>
+                                      <Badge variant="outline" className="text-xs">
+                                        {request.sex === "MALE" ? "남성" : "여성"}
+                                      </Badge>
+                                    </div>
+                                    <div className="mt-1.5 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-500">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-400">생년월일</span>
+                                        <span>{formatBirthday(request.birthday)}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-400">이메일</span>
+                                        <span>{request.email}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-400">휴대폰</span>
+                                        <span>{request.phone}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <Clock className="h-3.5 w-3.5 text-slate-400" />
+                                        <span className="text-slate-400">{request.requestedAt} 요청</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRejectRequest(request.id)}
+                                    disabled={rejectingId === request.id || approvingId === request.id}
+                                    className="text-slate-500 hover:text-red-500 hover:border-red-300"
+                                  >
+                                    {rejectingId === request.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      "거절"
+                                    )}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleApproveRequest(request.id)}
+                                    disabled={approvingId === request.id || rejectingId === request.id}
+                                    className="bg-emerald-600 hover:bg-emerald-700"
+                                  >
+                                    {approvingId === request.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      "승인"
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* 히스토리 탭 */}
+                  {joinRequestTab === "history" && (
+                    <>
+                      {joinHistoryLoading ? (
+                        <div className="py-12 text-center">
+                          <Loader2 className="mx-auto h-8 w-8 animate-spin text-slate-400" />
+                          <p className="mt-3 text-slate-500 dark:text-slate-400">
+                            불러오는 중...
+                          </p>
+                        </div>
+                      ) : joinHistory.length === 0 ? (
+                        <div className="py-12 text-center">
+                          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                            <Clock className="h-6 w-6 text-slate-400" />
+                          </div>
+                          <p className="text-slate-500 dark:text-slate-400">
+                            처리된 편입 요청이 없습니다.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {joinHistory.map((record) => (
+                            <div
+                              key={record.id}
+                              className="rounded-lg border border-slate-200 p-4 dark:border-slate-700"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-4">
+                                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-lg font-medium">
+                                    {record.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-semibold text-slate-900 dark:text-white">{record.name}</p>
+                                      <Badge variant="outline" className="text-xs">
+                                        {record.sex === "MALE" ? "남성" : "여성"}
+                                      </Badge>
+                                      {record.status === "ACCEPTED" ? (
+                                        <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs">
+                                          승인
+                                        </Badge>
+                                      ) : (
+                                        <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs">
+                                          거절
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="mt-1.5 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-500">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-400">생년월일</span>
+                                        <span>{formatBirthday(record.birthday)}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-400">이메일</span>
+                                        <span>{record.email}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-400">요청일</span>
+                                        <span>{record.requestedAt}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-400">처리일</span>
+                                        <span>{record.completedAt}</span>
+                                      </div>
+                                    </div>
+                                    {record.completedBy && (
+                                      <p className="mt-1.5 text-xs text-slate-400">
+                                        처리자: {record.completedBy}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>

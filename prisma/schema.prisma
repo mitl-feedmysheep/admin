@@ -26,9 +26,10 @@ model member {
   updated_at     DateTime  @default(now()) @updatedAt @db.DateTime(0)
   deleted_at     DateTime? @db.DateTime(0)
 
-  church_members church_member[]
-  group_members  group_member[]
-  prayers        prayer[]
+  church_members         church_member[]
+  group_members          group_member[]
+  prayers                prayer[]
+  church_member_requests church_member_request[]
 }
 
 model church {
@@ -42,8 +43,9 @@ model church {
   updated_at   DateTime? @default(now()) @updatedAt @db.DateTime(0)
   deleted_at   DateTime? @db.DateTime(0)
 
-  church_members church_member[]
-  groups         group[]
+  church_members         church_member[]
+  groups                 group[]
+  church_member_requests church_member_request[]
 }
 
 model church_member {
@@ -215,4 +217,21 @@ model visit_member {
   created_at       DateTime  @default(now()) @db.DateTime(6)
   updated_at       DateTime  @default(now()) @db.DateTime(6)
   deleted_at       DateTime? @db.DateTime(6)
+}
+
+/// 교회 멤버 편입 요청
+model church_member_request {
+  id           String    @id @db.Char(36)
+  member_id    String    @db.Char(36)
+  church_id    String    @db.Char(36)
+  status       String    @default("PENDING") @db.VarChar(20)
+  completed_by String?   @db.Char(36)
+  created_at   DateTime  @default(now()) @db.DateTime(6)
+  updated_at   DateTime  @default(now()) @db.DateTime(6)
+  deleted_at   DateTime? @db.DateTime(6)
+
+  member member @relation(fields: [member_id], references: [id])
+  church church @relation(fields: [church_id], references: [id])
+
+  @@index([church_id])
 }

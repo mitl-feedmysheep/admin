@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 
 /**
- * GET /api/dashboard/birthdays
- * 이번 주(월~일) 생일인 교회 멤버 목록
+ * GET /api/dashboard/birthdays?offset=0
+ * 주 단위 생일 멤버 목록 (월~일 기준)
+ * offset: 0=이번 주, -1=지난 주, 1=다음 주, ...
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
@@ -15,20 +16,22 @@ export async function GET() {
 
     const churchId = session.churchId;
 
-    // 이번 주 월요일~일요일 계산
+    const { searchParams } = new URL(request.url);
+    const offset = parseInt(searchParams.get("offset") || "0");
+
+    // 이번 주 월요일 계산
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0=일, 1=월, ..., 6=토
     const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
 
     const monday = new Date(today);
-    monday.setDate(today.getDate() + diffToMonday);
+    monday.setDate(today.getDate() + diffToMonday + offset * 7);
     monday.setHours(0, 0, 0, 0);
 
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
 
-    // 월-일 범위 (생일은 년도 무관, 월/일 기준)
     const monMonth = monday.getMonth() + 1;
     const monDay = monday.getDate();
     const sunMonth = sunday.getMonth() + 1;
@@ -55,7 +58,7 @@ export async function GET() {
       },
     });
 
-    // 생일이 이번 주(월~일) 범위에 해당하는 멤버 필터
+    // 생일이 해당 주(월~일) 범위에 해당하는 멤버 필터
     const birthdayMembers = churchMembers
       .filter((cm) => {
         if (!cm.member.birthday) return false;
@@ -64,10 +67,8 @@ export async function GET() {
         const bDay = bday.getDate();
 
         if (monMonth === sunMonth) {
-          // 같은 달 안에서
           return bMonth === monMonth && bDay >= monDay && bDay <= sunDay;
         } else {
-          // 월이 넘어가는 경우 (예: 1/28(월) ~ 2/3(일))
           return (
             (bMonth === monMonth && bDay >= monDay) ||
             (bMonth === sunMonth && bDay <= sunDay)
@@ -79,9 +80,8 @@ export async function GET() {
         const bMonth = bday.getMonth() + 1;
         const bDay = bday.getDate();
 
-        // 이번 주 내 실제 생일 날짜 계산 (요일 표시용)
+        // 해당 주 내 실제 생일 날짜 계산 (요일 표시용)
         const birthdayThisWeek = new Date(monday);
-        // 생일의 월/일이 해당하는 날짜 찾기
         for (let d = new Date(monday); d <= sunday; d.setDate(d.getDate() + 1)) {
           if (d.getMonth() + 1 === bMonth && d.getDate() === bDay) {
             birthdayThisWeek.setTime(d.getTime());
@@ -92,7 +92,7 @@ export async function GET() {
         const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
         const dayName = dayNames[birthdayThisWeek.getDay()];
 
-        const birthYear = bday.getFullYear() % 100; // 91, 09 등
+        const birthYear = bday.getFullYear() % 100;
 
         return {
           id: cm.member.id,
@@ -107,7 +107,6 @@ export async function GET() {
         };
       })
       .sort((a, b) => {
-        // 월/일 순 정렬
         if (a.month !== b.month) return a.month - b.month;
         return a.day - b.day;
       });
@@ -115,6 +114,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: {
+        offset,
         weekRange: {
           start: `${monMonth}.${monDay}`,
           end: `${sunMonth}.${sunDay}`,
