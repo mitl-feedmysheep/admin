@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, UsersRound, Church, HandHeart, Download, ChevronRight, ChevronLeft, User, Check, X, AlertCircle, Loader2, BookOpen, Target } from "lucide-react";
+import { Users, UsersRound, Church, HandHeart, Download, ChevronRight, ChevronLeft, User, Check, X, AlertCircle, Loader2, BookOpen, Target, Cake } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,6 +67,22 @@ interface GatheringDetail {
     gatheringRate: number;
   };
   members: GatheringDetailMember[];
+}
+
+interface BirthdayMember {
+  id: string;
+  name: string;
+  sex: string;
+  birthYear: string;
+  month: number;
+  day: number;
+  dayName: string;
+  isToday: boolean;
+}
+
+interface BirthdayData {
+  weekRange: { start: string; end: string };
+  members: BirthdayMember[];
 }
 
 // 주차 정보 생성 (해당 월의 주차들, 현재 시점까지만)
@@ -171,10 +187,30 @@ export function DashboardClient() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedGathering, setSelectedGathering] = useState<GatheringData | null>(null);
   
+  // 생일 상태
+  const [birthdayData, setBirthdayData] = useState<BirthdayData | null>(null);
+  const [birthdayLoading, setBirthdayLoading] = useState(true);
+
   // 목회자 코멘트 상태
   const [pastorComment, setPastorComment] = useState("");
   const [savingComment, setSavingComment] = useState(false);
   const [commentSaved, setCommentSaved] = useState(false);
+
+  // 생일 데이터 가져오기
+  const fetchBirthdays = useCallback(async () => {
+    setBirthdayLoading(true);
+    try {
+      const res = await fetch("/api/dashboard/birthdays");
+      const json = await res.json();
+      if (json.success) {
+        setBirthdayData(json.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch birthdays:", error);
+    } finally {
+      setBirthdayLoading(false);
+    }
+  }, []);
 
   // 통계 데이터 가져오기
   const fetchStats = useCallback(async () => {
@@ -260,6 +296,11 @@ export function DashboardClient() {
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  // 생일 데이터 (페이지 로드 시 한 번)
+  useEffect(() => {
+    fetchBirthdays();
+  }, [fetchBirthdays]);
 
   // 주차 변경 시 모임 데이터 다시 가져오기
   useEffect(() => {
@@ -464,6 +505,65 @@ export function DashboardClient() {
           </Card>
         ))}
       </div>
+
+      {/* 이번 주 생일 */}
+      <Card className="border-slate-200 dark:border-slate-800">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Cake className="h-5 w-5 text-pink-500" />
+            <CardTitle className="text-slate-900 dark:text-white">
+              이번 주 생일
+            </CardTitle>
+            {birthdayData && (
+              <span className="text-xs text-slate-400">
+                ({birthdayData.weekRange.start} ~ {birthdayData.weekRange.end})
+              </span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {birthdayLoading ? (
+            <div className="flex items-center gap-2 py-2">
+              <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+              <span className="text-sm text-slate-400">로딩중...</span>
+            </div>
+          ) : !birthdayData || birthdayData.members.length === 0 ? (
+            <p className="py-2 text-sm text-slate-400">이번 주 생일인 멤버가 없습니다.</p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {birthdayData.members.map((m) => (
+                <div
+                  key={m.id}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                    m.isToday
+                      ? "border-pink-300 bg-pink-50 dark:border-pink-700 dark:bg-pink-900/20"
+                      : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/50"
+                  }`}
+                >
+                  <Cake className={`h-4 w-4 ${m.isToday ? "text-pink-500" : "text-slate-400"}`} />
+                  <span className="text-xs text-slate-400">{m.birthYear}</span>
+                  <span className="font-medium text-slate-900 dark:text-white">
+                    {m.name}
+                  </span>
+                  {m.sex && (
+                    <span className={`inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium ${
+                      m.sex === "M"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                        : "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300"
+                    }`}>
+                      {m.sex === "M" ? "남" : "여"}
+                    </span>
+                  )}
+                  <span className={`text-xs ${m.isToday ? "font-semibold text-pink-600 dark:text-pink-400" : "text-slate-500 dark:text-slate-400"}`}>
+                    {m.month}/{m.day}({m.dayName})
+                    {m.isToday && " 오늘!"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Weekly Gatherings */}
       <Card className="border-slate-200 dark:border-slate-800">
