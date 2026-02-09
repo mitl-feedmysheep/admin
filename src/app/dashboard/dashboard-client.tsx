@@ -770,7 +770,7 @@ export function DashboardClient() {
                     >
                       {/* 멤버 헤더 */}
                       <div className={`flex items-center justify-between p-3 ${
-                        member.gatheringAttendance && (member.story || member.goal || member.prayers.length > 0)
+                        (member.story || member.goal || member.prayers.length > 0)
                           ? "border-b border-slate-100 dark:border-slate-700"
                           : ""
                       }`}>
@@ -815,7 +815,7 @@ export function DashboardClient() {
                       </div>
                       
                       {/* 나눔 / 한주목표 / 기도제목 */}
-                      {member.gatheringAttendance && (member.story || member.goal || member.prayers.length > 0) && (
+                      {(member.story || member.goal || member.prayers.length > 0) && (
                         <div className="space-y-2 p-3 text-sm">
                           {member.story && (
                             <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3">
