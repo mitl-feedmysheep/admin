@@ -1,10 +1,5 @@
-import { AdminLayout } from "@/components/admin-layout";
-import { ManageClient } from "./manage-client";
+import { redirect } from "next/navigation";
 
 export default function ManagePage() {
-  return (
-    <AdminLayout>
-      <ManageClient />
-    </AdminLayout>
-  );
+  redirect("/manage/church");
 }

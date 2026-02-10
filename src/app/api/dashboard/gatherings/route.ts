@@ -69,11 +69,6 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { name: "asc" },
     });
-    console.log("Groups found:", groups.length, groups.map(g => ({ 
-      id: g.id, 
-      name: g.name, 
-      gatheringsCount: g.gatherings.length 
-    })));
 
     // 결과 데이터 생성
     const result = groups.map((group) => {

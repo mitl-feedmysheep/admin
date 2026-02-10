@@ -9,26 +9,22 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, UsersRound, UserCog, Plus, Copy, Check, UserCheck, Clock, Search, UserMinus, X, Church, Users, Eye, EyeOff, Loader2 } from "lucide-react";
+import { UserPlus, UsersRound, UserCog, Plus, Copy, Check, UserCheck, Clock, Search, UserMinus, X, Church, Users, Eye, EyeOff, Loader2, Trash2, CalendarIcon, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmDialog, ConfirmDialogVariant } from "@/components/confirm-dialog";
 
-// Mock 소모임 데이터
-const mockGroups = [
-  { id: "1", name: "강소정 셀", leaderName: "강소정", memberCount: 8, startDate: "2024-01-01", endDate: null },
-  { id: "2", name: "강혜정 셀", leaderName: "강혜정", memberCount: 6, startDate: "2024-03-15", endDate: null },
-  { id: "3", name: "김민지 셀", leaderName: "김민지", memberCount: 7, startDate: "2024-06-01", endDate: null },
-];
-
-// Mock 멤버 데이터 (성별, 생년월일, 전화번호 추가)
-const mockMembers = [
-  { id: "1", name: "강소정", email: "kang@example.com", sex: "FEMALE", birthday: "1990-03-15", phone: "010-1234-5678", group: "강소정 셀", role: "LEADER" },
-  { id: "2", name: "변재욱", email: "byun@example.com", sex: "MALE", birthday: "1992-07-22", phone: "010-2345-6789", group: "강소정 셀", role: "MEMBER" },
-  { id: "3", name: "서현제", email: "seo@example.com", sex: "MALE", birthday: "1988-11-05", phone: "010-3456-7890", group: "강소정 셀", role: "MEMBER" },
-  { id: "4", name: "강혜정", email: "khj@example.com", sex: "FEMALE", birthday: "1991-05-10", phone: "010-4567-8901", group: "강혜정 셀", role: "LEADER" },
-  { id: "5", name: "박준성", email: "park@example.com", sex: "MALE", birthday: "1995-09-18", phone: "010-5678-9012", group: null, role: null },
-  { id: "6", name: "김민지", email: "kim@example.com", sex: "FEMALE", birthday: "1993-01-25", phone: "010-6789-0123", group: "김민지 셀", role: "LEADER" },
-  { id: "7", name: "이영희", email: "lee@example.com", sex: "FEMALE", birthday: "1994-12-03", phone: "010-7890-1234", group: null, role: null },
-  { id: "8", name: "최민수", email: "choi@example.com", sex: "MALE", birthday: "1989-04-28", phone: "010-8901-2345", group: "강혜정 셀", role: "MEMBER" },
-];
+// 소모임 타입
+interface Group {
+  id: string;
+  name: string;
+  description: string;
+  startDate: string | null;
+  endDate: string | null;
+  memberCount: number;
+  leaderName: string;
+  leaderId: string;
+  createdAt: string;
+}
 
 // 편입 요청 타입
 interface JoinRequest {
@@ -58,6 +54,27 @@ interface JoinRequestHistory {
 }
 
 export function ManageClient() {
+  // 공통 다이얼로그 상태
+  const [dialogState, setDialogState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    mode: "confirm" | "alert";
+    variant: ConfirmDialogVariant;
+    confirmText?: string;
+    onConfirm?: () => void;
+  }>({
+    open: false,
+    title: "",
+    description: "",
+    mode: "alert",
+    variant: "info",
+  });
+
+  const showAlert = (title: string, description: string, variant: ConfirmDialogVariant = "info") => {
+    setDialogState({ open: true, title, description, mode: "alert", variant });
+  };
+
   // 상위 탭 상태
   const [mainTab, setMainTab] = useState("church");
   // 하위 탭 상태
@@ -91,11 +108,26 @@ export function ManageClient() {
     endDate: "",
   });
   
+  // 소모임 목록 상태
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [groupYearFilter, setGroupYearFilter] = useState(String(new Date().getFullYear()));
+  const [groupCreateMessage, setGroupCreateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [groupDeleteDialogOpen, setGroupDeleteDialogOpen] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+  const [isSavingGroupName, setIsSavingGroupName] = useState(false);
+
   // 멤버 할당 상태
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
-  const [selectedMember, setSelectedMember] = useState<typeof mockMembers[0] | null>(null);
+  const [searchResults, setSearchResults] = useState<{ id: string; name: string; sex: string; birthday: string; phone: string; primaryGroup: string; role: string }[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedMembers, setSelectedMembers] = useState<{ id: string; name: string; sex: string; birthday: string; phone: string; primaryGroup: string }[]>([]);
   const [selectedGroup, setSelectedGroup] = useState("");
-  const [selectedRole, setSelectedRole] = useState("");
+  const [selectedRole, setSelectedRole] = useState("MEMBER");
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignMessage, setAssignMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   
   // 비밀번호 보이기/숨기기 상태
   const [showPassword, setShowPassword] = useState(false);
@@ -113,27 +145,68 @@ export function ManageClient() {
   
   // 멤버 제외용 상태
   const [removeGroupFilter, setRemoveGroupFilter] = useState("");
+  const [membersInSelectedGroup, setMembersInSelectedGroup] = useState<
+    { groupMemberId: string; memberId: string; name: string; sex: string; phone: string; birthday: string; role: string }[]
+  >([]);
+  const [removeGroupLoading, setRemoveGroupLoading] = useState(false);
 
-  // 멤버 검색 결과
-  const filteredMembers = useMemo(() => {
-    if (!memberSearchQuery.trim()) return [];
-    const query = memberSearchQuery.toLowerCase();
-    return mockMembers.filter(
-      (member) =>
-        member.name.toLowerCase().includes(query) ||
-        member.phone.includes(query) ||
-        member.email.toLowerCase().includes(query)
-    ).slice(0, 5); // 최대 5명까지만 표시
+  // 소모임 멤버 목록 불러오기
+  const fetchGroupMembers = useCallback(async (groupId: string) => {
+    if (!groupId) {
+      setMembersInSelectedGroup([]);
+      return;
+    }
+    setRemoveGroupLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${groupId}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMembersInSelectedGroup(data.data.members);
+      } else {
+        setMembersInSelectedGroup([]);
+      }
+    } catch {
+      console.error("소모임 멤버 조회 실패");
+      setMembersInSelectedGroup([]);
+    } finally {
+      setRemoveGroupLoading(false);
+    }
+  }, []);
+
+  // removeGroupFilter 변경 시 멤버 목록 로드
+  useEffect(() => {
+    if (removeGroupFilter) {
+      fetchGroupMembers(removeGroupFilter);
+    } else {
+      setMembersInSelectedGroup([]);
+    }
+  }, [removeGroupFilter, fetchGroupMembers]);
+
+  // 멤버 검색 (API 호출, 디바운스)
+  useEffect(() => {
+    if (!memberSearchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/members?q=${encodeURIComponent(memberSearchQuery.trim())}`);
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setSearchResults(data.data.members);
+        }
+      } catch {
+        console.error("멤버 검색 실패");
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [memberSearchQuery]);
 
-  // 소모임별 멤버 필터링 (제외용)
-  const membersInSelectedGroup = useMemo(() => {
-    if (!removeGroupFilter) return [];
-    return mockMembers.filter((member) => {
-      const group = mockGroups.find(g => g.id === removeGroupFilter);
-      return group && member.group === group.name;
-    });
-  }, [removeGroupFilter]);
 
   const [isCreating, setIsCreating] = useState(false);
 
@@ -158,7 +231,7 @@ export function ManageClient() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "계정 생성에 실패했습니다.");
+        showAlert("계정 생성 실패", data.error || "계정 생성에 실패했습니다.", "danger");
         return;
       }
 
@@ -168,7 +241,7 @@ export function ManageClient() {
         password: accountForm.password,
       });
     } catch {
-      alert("계정 생성 중 오류가 발생했습니다.");
+      showAlert("오류", "계정 생성 중 오류가 발생했습니다.", "danger");
     } finally {
       setIsCreating(false);
     }
@@ -200,44 +273,119 @@ export function ManageClient() {
     });
   };
 
-  const handleCreateGroup = (e: React.FormEvent) => {
+  const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: API 호출
-    console.log("Creating group:", groupForm);
-    alert("소모임이 생성되었습니다!");
-    setGroupForm({ name: "", description: "", startDate: "", endDate: "" });
+    if (!groupForm.name.trim() || isCreatingGroup) return;
+
+    setIsCreatingGroup(true);
+    setGroupCreateMessage(null);
+    try {
+      const res = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: groupForm.name,
+          description: groupForm.description || undefined,
+          startDate: groupForm.startDate ? dateToApi(groupForm.startDate) : undefined,
+          endDate: groupForm.endDate ? dateToApi(groupForm.endDate) : undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setGroupCreateMessage({ type: "error", text: data.error || "소모임 생성에 실패했습니다." });
+        return;
+      }
+
+      setGroupCreateMessage({ type: "success", text: `"${data.data.name}" 소모임이 생성되었습니다.` });
+      setGroupForm({ name: "", description: "", startDate: "", endDate: "" });
+      fetchGroups(groupYearFilter);
+    } catch {
+      setGroupCreateMessage({ type: "error", text: "소모임 생성 중 오류가 발생했습니다." });
+    } finally {
+      setIsCreatingGroup(false);
+    }
   };
 
-  const handleSelectMember = (member: typeof mockMembers[0]) => {
-    setSelectedMember(member);
+  const handleSaveGroupName = async (groupId: string) => {
+    if (!editingGroupName.trim() || isSavingGroupName) return;
+
+    setIsSavingGroupName(true);
+    try {
+      const res = await fetch(`/api/groups/${groupId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editingGroupName }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showAlert("이름 변경 실패", data.error || "이름 변경에 실패했습니다.", "danger");
+        return;
+      }
+
+      setEditingGroupId(null);
+      setEditingGroupName("");
+      fetchGroups(groupYearFilter);
+    } catch {
+      showAlert("오류", "이름 변경 중 오류가 발생했습니다.", "danger");
+    } finally {
+      setIsSavingGroupName(false);
+    }
+  };
+
+  const handleSelectMember = (member: { id: string; name: string; sex: string; birthday: string; phone: string; primaryGroup: string }) => {
+    // 이미 선택된 멤버면 무시
+    if (selectedMembers.some((m) => m.id === member.id)) return;
+    setSelectedMembers((prev) => [...prev, member]);
     setMemberSearchQuery("");
+    setSearchResults([]);
   };
 
-  const handleClearSelectedMember = () => {
-    setSelectedMember(null);
+  const handleRemoveSelectedMember = (memberId: string) => {
+    setSelectedMembers((prev) => prev.filter((m) => m.id !== memberId));
   };
 
-  const handleAssignMember = () => {
-    if (!selectedMember || !selectedGroup || !selectedRole) {
-      alert("모든 항목을 선택해주세요.");
+  const handleAssignMembers = async () => {
+    if (selectedMembers.length === 0 || !selectedGroup || !selectedRole) {
       return;
     }
-    // TODO: API 호출
-    console.log("Assigning member:", { selectedMember: selectedMember.id, selectedGroup, selectedRole });
-    alert("멤버가 소모임에 할당되었습니다!");
-    setSelectedMember(null);
-    setSelectedGroup("");
-    setSelectedRole("");
+
+    setIsAssigning(true);
+    setAssignMessage(null);
+    try {
+      const res = await fetch(`/api/groups/${selectedGroup}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberIds: selectedMembers.map((m) => m.id),
+          role: selectedRole,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAssignMessage({ type: "error", text: data.error || "멤버 할당에 실패했습니다." });
+        return;
+      }
+
+      const msg = data.data.skippedCount > 0
+        ? `${data.data.assignedCount}명 할당 완료 (${data.data.skippedCount}명은 이미 소속)`
+        : `${data.data.assignedCount}명 할당 완료`;
+      setAssignMessage({ type: "success", text: msg });
+      setSelectedMembers([]);
+      fetchGroups(groupYearFilter);
+    } catch {
+      setAssignMessage({ type: "error", text: "멤버 할당 중 오류가 발생했습니다." });
+    } finally {
+      setIsAssigning(false);
+    }
   };
 
-  const handleRemoveMember = (memberId: string) => {
-    const member = mockMembers.find(m => m.id === memberId);
-    if (!member) return;
-    
-    // TODO: API 호출
-    console.log("Removing member from group:", memberId);
-    alert(`${member.name}님이 소모임에서 제외되었습니다.`);
-  };
+  const [memberRemoveDialogOpen, setMemberRemoveDialogOpen] = useState(false);
 
   // 편입 요청 목록 불러오기
   const fetchJoinRequests = useCallback(async () => {
@@ -271,11 +419,29 @@ export function ManageClient() {
     }
   }, []);
 
-  // 컴포넌트 마운트 시 편입 요청 목록 불러오기
+  // 소모임 목록 불러오기
+  const fetchGroups = useCallback(async (year?: string) => {
+    setGroupsLoading(true);
+    try {
+      const params = year ? `?year=${year}` : "";
+      const res = await fetch(`/api/groups${params}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setGroups(data.data.groups);
+      }
+    } catch {
+      console.error("소모임 목록 불러오기 실패");
+    } finally {
+      setGroupsLoading(false);
+    }
+  }, []);
+
+  // 컴포넌트 마운트 시 데이터 불러오기
   useEffect(() => {
     fetchJoinRequests();
     fetchJoinHistory();
-  }, [fetchJoinRequests, fetchJoinHistory]);
+    fetchGroups(groupYearFilter);
+  }, [fetchJoinRequests, fetchJoinHistory, fetchGroups, groupYearFilter]);
 
   const handleApproveRequest = async (requestId: string) => {
     setApprovingId(requestId);
@@ -288,7 +454,7 @@ export function ManageClient() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "승인에 실패했습니다.");
+        showAlert("승인 실패", data.error || "승인에 실패했습니다.", "danger");
         return;
       }
 
@@ -296,7 +462,7 @@ export function ManageClient() {
       setJoinRequests((prev) => prev.filter((r) => r.id !== requestId));
       fetchJoinHistory();
     } catch {
-      alert("승인 처리 중 오류가 발생했습니다.");
+      showAlert("오류", "승인 처리 중 오류가 발생했습니다.", "danger");
     } finally {
       setApprovingId(null);
     }
@@ -313,7 +479,7 @@ export function ManageClient() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "거절에 실패했습니다.");
+        showAlert("거절 실패", data.error || "거절에 실패했습니다.", "danger");
         return;
       }
 
@@ -321,7 +487,7 @@ export function ManageClient() {
       setJoinRequests((prev) => prev.filter((r) => r.id !== requestId));
       fetchJoinHistory();
     } catch {
-      alert("거절 처리 중 오류가 발생했습니다.");
+      showAlert("오류", "거절 처리 중 오류가 발생했습니다.", "danger");
     } finally {
       setRejectingId(null);
     }
@@ -343,6 +509,25 @@ export function ManageClient() {
     } else {
       return `${limited.slice(0, 3)}-${limited.slice(3, 7)}-${limited.slice(7)}`;
     }
+  };
+
+  // 날짜 포맷팅 함수 (자동 슬래시 삽입, YYYY/MM/DD)
+  const formatDateInput = (value: string) => {
+    const numbers = value.replace(/[^0-9]/g, "");
+    const limited = numbers.slice(0, 8);
+
+    if (limited.length <= 4) {
+      return limited;
+    } else if (limited.length <= 6) {
+      return `${limited.slice(0, 4)}/${limited.slice(4)}`;
+    } else {
+      return `${limited.slice(0, 4)}/${limited.slice(4, 6)}/${limited.slice(6)}`;
+    }
+  };
+
+  // 날짜 표시 → API 전송용 변환 (YYYY/MM/DD → YYYY-MM-DD)
+  const dateToApi = (value: string) => {
+    return value.replaceAll("/", "-");
   };
 
   // 휴대폰번호에서 하이픈 제거 (저장용)
@@ -931,22 +1116,68 @@ export function ManageClient() {
                       <div className="grid gap-4 grid-cols-2">
                         <div className="space-y-2">
                           <Label htmlFor="startDate">시작일 *</Label>
-                          <Input
-                            id="startDate"
-                            type="date"
-                            value={groupForm.startDate}
-                            onChange={(e) => setGroupForm({ ...groupForm, startDate: e.target.value })}
-                            required
-                          />
+                          <div className="relative">
+                            <Input
+                              id="startDate"
+                              value={groupForm.startDate}
+                              onChange={(e) => setGroupForm({ ...groupForm, startDate: formatDateInput(e.target.value) })}
+                              placeholder="YYYY/MM/DD"
+                              maxLength={10}
+                              className="pr-10"
+                              required
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                              onClick={() => (document.getElementById("startDate-picker") as HTMLInputElement)?.showPicker()}
+                            >
+                              <CalendarIcon className="h-4 w-4" />
+                            </button>
+                            <input
+                              id="startDate-picker"
+                              type="date"
+                              className="invisible absolute inset-0 h-0 w-0"
+                              value={groupForm.startDate ? dateToApi(groupForm.startDate) : ""}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  setGroupForm({ ...groupForm, startDate: e.target.value.replaceAll("-", "/") });
+                                }
+                              }}
+                              tabIndex={-1}
+                            />
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="endDate">종료일</Label>
-                          <Input
-                            id="endDate"
-                            type="date"
-                            value={groupForm.endDate}
-                            onChange={(e) => setGroupForm({ ...groupForm, endDate: e.target.value })}
-                          />
+                          <div className="relative">
+                            <Input
+                              id="endDate"
+                              value={groupForm.endDate}
+                              onChange={(e) => setGroupForm({ ...groupForm, endDate: formatDateInput(e.target.value) })}
+                              placeholder="YYYY/MM/DD"
+                              maxLength={10}
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                              onClick={() => (document.getElementById("endDate-picker") as HTMLInputElement)?.showPicker()}
+                            >
+                              <CalendarIcon className="h-4 w-4" />
+                            </button>
+                            <input
+                              id="endDate-picker"
+                              type="date"
+                              className="invisible absolute inset-0 h-0 w-0"
+                              value={groupForm.endDate ? dateToApi(groupForm.endDate) : ""}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  setGroupForm({ ...groupForm, endDate: e.target.value.replaceAll("-", "/") });
+                                }
+                              }}
+                              tabIndex={-1}
+                            />
+                          </div>
                         </div>
                       </div>
                       <div className="space-y-2">
@@ -960,11 +1191,24 @@ export function ManageClient() {
                         />
                       </div>
                       <div className="flex justify-end">
-                        <Button type="submit" className="gap-2 bg-slate-800 hover:bg-slate-700">
-                          <Plus className="h-4 w-4" />
-                          소모임 생성
+                        <Button type="submit" className="gap-2 bg-slate-800 hover:bg-slate-700" disabled={isCreatingGroup || !groupForm.name.trim()}>
+                          {isCreatingGroup ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Plus className="h-4 w-4" />
+                          )}
+                          {isCreatingGroup ? "생성 중..." : "소모임 생성"}
                         </Button>
                       </div>
+                      {groupCreateMessage && (
+                        <div className={`mt-4 rounded-lg px-4 py-3 text-sm ${
+                          groupCreateMessage.type === "success"
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+                            : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                        }`}>
+                          {groupCreateMessage.text}
+                        </div>
+                      )}
                     </form>
                   </CardContent>
                 </Card>
@@ -972,33 +1216,123 @@ export function ManageClient() {
                 {/* 기존 소모임 목록 */}
                 <Card className="border-slate-200 dark:border-slate-800">
                   <CardHeader>
-                    <CardTitle className="text-slate-900 dark:text-white">소모임 목록</CardTitle>
-                    <CardDescription>
-                      현재 등록된 소모임 ({mockGroups.length}개)
-                    </CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-slate-900 dark:text-white">소모임 목록</CardTitle>
+                        <CardDescription>
+                          {groupYearFilter}년 소모임 ({groups.length}개)
+                        </CardDescription>
+                      </div>
+                      <Select value={groupYearFilter} onValueChange={setGroupYearFilter}>
+                        <SelectTrigger className="w-[100px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: new Date().getFullYear() - 2025 + 1 }, (_, i) => {
+                            const y = String(new Date().getFullYear() - i);
+                            return (
+                              <SelectItem key={y} value={y}>
+                                {y}년
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      {mockGroups.map((group) => (
-                        <div
-                          key={group.id}
-                          className="rounded-lg border border-slate-200 p-3 dark:border-slate-700"
-                        >
-                          <div className="flex items-center justify-between">
-                            <p className="font-medium text-slate-900 dark:text-white">{group.name}</p>
-                            <Badge variant="outline" className="text-slate-500">
-                              {group.memberCount}명
-                            </Badge>
+                    {groupsLoading ? (
+                      <div className="py-8 text-center">
+                        <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
+                        <p className="mt-2 text-sm text-slate-500">불러오는 중...</p>
+                      </div>
+                    ) : groups.length === 0 ? (
+                      <div className="py-8 text-center">
+                        <UsersRound className="mx-auto h-8 w-8 text-slate-300" />
+                        <p className="mt-2 text-sm text-slate-500">등록된 소모임이 없습니다.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {groups.map((group) => (
+                          <div
+                            key={group.id}
+                            className="rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+                          >
+                            <div className="flex items-center justify-between">
+                              {editingGroupId === group.id ? (
+                                <div className="flex items-center gap-1.5 flex-1 mr-2">
+                                  <Input
+                                    value={editingGroupName}
+                                    onChange={(e) => setEditingGroupName(e.target.value)}
+                                    className="h-8 text-sm"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") handleSaveGroupName(group.id);
+                                      if (e.key === "Escape") { setEditingGroupId(null); setEditingGroupName(""); }
+                                    }}
+                                    disabled={isSavingGroupName}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                    onClick={() => handleSaveGroupName(group.id)}
+                                    disabled={isSavingGroupName || !editingGroupName.trim()}
+                                  >
+                                    {isSavingGroupName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                    onClick={() => { setEditingGroupId(null); setEditingGroupName(""); }}
+                                    disabled={isSavingGroupName}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <p className="font-medium text-slate-900 dark:text-white">{group.name}</p>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-slate-500">
+                                  {group.memberCount}명
+                                </Badge>
+                                {editingGroupId !== group.id && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                    onClick={() => {
+                                      setEditingGroupId(group.id);
+                                      setEditingGroupName(group.name);
+                                    }}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  onClick={() => setGroupDeleteDialogOpen(true)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                            {group.leaderName && (
+                              <p className="text-sm text-slate-500 mt-1">
+                                리더: {group.leaderName}
+                              </p>
+                            )}
+                            <p className="text-xs text-slate-400 mt-1">
+                              {group.startDate ? group.startDate.replaceAll("-", "/") : "미정"} ~ {group.endDate ? group.endDate.replaceAll("-", "/") : "진행중"}
+                            </p>
                           </div>
-                          <p className="text-sm text-slate-500 mt-1">
-                            리더: {group.leaderName}
-                          </p>
-                          <p className="text-xs text-slate-400 mt-1">
-                            {group.startDate} ~ {group.endDate || "진행중"}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -1019,94 +1353,98 @@ export function ManageClient() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-6 lg:grid-cols-2">
-                      {/* 왼쪽: 멤버 검색 및 선택 */}
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>멤버 검색 *</Label>
-                          {selectedMember ? (
-                            // 선택된 멤버 표시
-                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-600 text-lg font-medium">
-                                    {selectedMember.name.charAt(0)}
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-slate-900 dark:text-white">
-                                      {selectedMember.name}
-                                    </p>
-                                    <div className="mt-1 space-y-0.5 text-sm text-slate-500">
-                                      <p>{selectedMember.sex === "MALE" ? "남성" : "여성"} · {formatBirthday(selectedMember.birthday)}</p>
-                                      <p>{selectedMember.phone}</p>
+                    <div className="space-y-6">
+                      {/* 멤버 검색 */}
+                      <div className="space-y-2">
+                        <Label>멤버 검색</Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            placeholder="이름, 전화번호, 이메일로 검색..."
+                            value={memberSearchQuery}
+                            onChange={(e) => setMemberSearchQuery(e.target.value)}
+                            className="pl-10"
+                          />
+                          {isSearching && (
+                            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+                          )}
+                          {/* 검색 결과 드롭다운 */}
+                          {searchResults.length > 0 && memberSearchQuery.trim() && (
+                            <div className="absolute z-10 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800 max-h-60 overflow-auto">
+                              {searchResults.map((member) => {
+                                const alreadySelected = selectedMembers.some((m) => m.id === member.id);
+                                return (
+                                  <button
+                                    key={member.id}
+                                    type="button"
+                                    onClick={() => handleSelectMember(member)}
+                                    disabled={alreadySelected}
+                                    className={`flex w-full items-center gap-3 px-4 py-3 text-left first:rounded-t-md last:rounded-b-md ${
+                                      alreadySelected
+                                        ? "opacity-40 cursor-not-allowed bg-slate-50 dark:bg-slate-800"
+                                        : "hover:bg-slate-50 dark:hover:bg-slate-700"
+                                    }`}
+                                  >
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-600 text-sm font-medium">
+                                      {member.name.charAt(0)}
                                     </div>
-                                  </div>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={handleClearSelectedMember}
-                                  className="h-8 w-8 text-slate-400 hover:text-slate-600"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              {selectedMember.group && (
-                                <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                                  <p className="text-xs text-slate-400">현재 소속</p>
-                                  <Badge variant="outline" className="mt-1">
-                                    {selectedMember.group} ({selectedMember.role === "LEADER" ? "리더" : "멤버"})
-                                  </Badge>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            // 검색 입력
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                              <Input
-                                placeholder="이름, 전화번호, 이메일로 검색..."
-                                value={memberSearchQuery}
-                                onChange={(e) => setMemberSearchQuery(e.target.value)}
-                                className="pl-10"
-                              />
-                              {/* 검색 결과 드롭다운 */}
-                              {filteredMembers.length > 0 && (
-                                <div className="absolute z-10 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
-                                  {filteredMembers.map((member) => (
-                                    <button
-                                      key={member.id}
-                                      type="button"
-                                      onClick={() => handleSelectMember(member)}
-                                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 first:rounded-t-md last:rounded-b-md"
-                                    >
-                                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-600 text-sm font-medium">
-                                        {member.name.charAt(0)}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-slate-900 dark:text-white">
-                                          {member.name}
-                                        </p>
-                                        <p className="text-xs text-slate-500 truncate">
-                                          {member.sex === "MALE" ? "남" : "여"} · {formatBirthday(member.birthday)} · {member.phone}
-                                        </p>
-                                      </div>
-                                      {member.group && (
-                                        <Badge variant="outline" className="text-xs">
-                                          {member.group}
-                                        </Badge>
-                                      )}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-slate-900 dark:text-white">
+                                        {member.name}
+                                      </p>
+                                      <p className="text-xs text-slate-500 truncate">
+                                        {member.sex === "M" ? "남" : "여"} · {formatBirthday(member.birthday)} · {member.phone}
+                                      </p>
+                                    </div>
+                                    {member.primaryGroup && (
+                                      <Badge variant="outline" className="text-xs shrink-0">
+                                        {member.primaryGroup}
+                                      </Badge>
+                                    )}
+                                    {alreadySelected && (
+                                      <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+                                    )}
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* 오른쪽: 소모임 및 역할 선택 */}
-                      <div className="space-y-4">
+                      {/* 선택된 멤버 카드들 */}
+                      {selectedMembers.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>선택된 멤버 ({selectedMembers.length}명)</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedMembers.map((member) => (
+                              <div
+                                key={member.id}
+                                className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
+                              >
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-600 text-xs font-medium">
+                                  {member.name.charAt(0)}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-slate-900 dark:text-white">{member.name}</p>
+                                  <p className="text-xs text-slate-500">{member.phone}</p>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-slate-400 hover:text-red-500"
+                                  onClick={() => handleRemoveSelectedMember(member.id)}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 소모임 & 역할 선택 */}
+                      <div className="grid gap-4 md:grid-cols-3">
                         <div className="space-y-2">
                           <Label>소모임 선택 *</Label>
                           <Select value={selectedGroup} onValueChange={setSelectedGroup}>
@@ -1114,7 +1452,7 @@ export function ManageClient() {
                               <SelectValue placeholder="소모임을 선택하세요" />
                             </SelectTrigger>
                             <SelectContent>
-                              {mockGroups.map((group) => (
+                              {groups.map((group) => (
                                 <SelectItem key={group.id} value={group.id}>
                                   {group.name}
                                 </SelectItem>
@@ -1126,25 +1464,41 @@ export function ManageClient() {
                           <Label>역할 선택 *</Label>
                           <Select value={selectedRole} onValueChange={setSelectedRole}>
                             <SelectTrigger>
-                              <SelectValue placeholder="역할을 선택하세요" />
+                              <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="MEMBER">일반멤버</SelectItem>
+                              <SelectItem value="SUB_LEADER">서브리더</SelectItem>
                               <SelectItem value="LEADER">리더</SelectItem>
-                              <SelectItem value="MEMBER">멤버</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="flex justify-end pt-2">
-                          <Button 
-                            onClick={handleAssignMember} 
-                            className="gap-2 bg-slate-800 hover:bg-slate-700"
-                            disabled={!selectedMember || !selectedGroup || !selectedRole}
+                        <div className="flex items-end">
+                          <Button
+                            onClick={handleAssignMembers}
+                            className="w-full gap-2 bg-slate-800 hover:bg-slate-700"
+                            disabled={selectedMembers.length === 0 || !selectedGroup || !selectedRole || isAssigning}
                           >
-                            <UserCog className="h-4 w-4" />
-                            멤버 할당
+                            {isAssigning ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <UserCog className="h-4 w-4" />
+                            )}
+                            {isAssigning ? "할당 중..." : `멤버 할당 (${selectedMembers.length}명)`}
                           </Button>
                         </div>
                       </div>
+
+                      {/* 결과 메시지 */}
+                      {assignMessage && (
+                        <div className={`rounded-lg px-4 py-3 text-sm ${
+                          assignMessage.type === "success"
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+                            : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                        }`}>
+                          {assignMessage.text}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1169,7 +1523,7 @@ export function ManageClient() {
                             <SelectValue placeholder="소모임을 선택하세요" />
                           </SelectTrigger>
                           <SelectContent>
-                            {mockGroups.map((group) => (
+                            {groups.map((group) => (
                               <SelectItem key={group.id} value={group.id}>
                                 {group.name}
                               </SelectItem>
@@ -1182,10 +1536,15 @@ export function ManageClient() {
                         <div className="rounded-lg border border-slate-200 dark:border-slate-700">
                           <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                              {mockGroups.find(g => g.id === removeGroupFilter)?.name} 멤버 ({membersInSelectedGroup.length}명)
+                              {groups.find(g => g.id === removeGroupFilter)?.name} 멤버 ({membersInSelectedGroup.length}명)
                             </p>
                           </div>
-                          {membersInSelectedGroup.length === 0 ? (
+                          {removeGroupLoading ? (
+                            <div className="p-6 text-center text-slate-500">
+                              <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                              멤버 목록을 불러오는 중...
+                            </div>
+                          ) : membersInSelectedGroup.length === 0 ? (
                             <div className="p-6 text-center text-slate-500">
                               해당 소모임에 멤버가 없습니다.
                             </div>
@@ -1193,7 +1552,7 @@ export function ManageClient() {
                             <div className="divide-y divide-slate-100 dark:divide-slate-700">
                               {membersInSelectedGroup.map((member) => (
                                 <div
-                                  key={member.id}
+                                  key={member.groupMemberId}
                                   className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50"
                                 >
                                   <div className="flex items-center gap-3">
@@ -1205,7 +1564,7 @@ export function ManageClient() {
                                         {member.name}
                                       </p>
                                       <p className="text-xs text-slate-500">
-                                        {member.sex === "MALE" ? "남" : "여"} · {member.phone}
+                                        {member.sex === "MALE" ? "남" : "여"} · {member.phone || "-"}
                                       </p>
                                     </div>
                                   </div>
@@ -1214,15 +1573,17 @@ export function ManageClient() {
                                       className={
                                         member.role === "LEADER"
                                           ? "bg-slate-800 text-white"
+                                          : member.role === "SUB_LEADER"
+                                          ? "bg-blue-100 text-blue-700"
                                           : "bg-slate-100 text-slate-600"
                                       }
                                     >
-                                      {member.role === "LEADER" ? "리더" : "멤버"}
+                                      {member.role === "LEADER" ? "리더" : member.role === "SUB_LEADER" ? "서브리더" : "멤버"}
                                     </Badge>
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => handleRemoveMember(member.id)}
+                                      onClick={() => setMemberRemoveDialogOpen(true)}
                                       className="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                                     >
                                       <UserMinus className="h-4 w-4" />
@@ -1234,6 +1595,7 @@ export function ManageClient() {
                           )}
                         </div>
                       )}
+
                     </div>
                   </CardContent>
                 </Card>
@@ -1242,6 +1604,60 @@ export function ManageClient() {
           </Tabs>
         </TabsContent>
       </Tabs>
+
+      {/* 소모임 삭제 안내 다이얼로그 */}
+      <Dialog open={groupDeleteDialogOpen} onOpenChange={setGroupDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>소모임 삭제</DialogTitle>
+            <DialogDescription>
+              소모임 삭제는 직접 처리할 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+            <p>관리자에게 문의해주세요.</p>
+            <p className="text-slate-500">kcs19542001@gmail.com</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setGroupDeleteDialogOpen(false)}>
+              확인
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 소모임 멤버 제외 안내 다이얼로그 */}
+      <Dialog open={memberRemoveDialogOpen} onOpenChange={setMemberRemoveDialogOpen}>
+        <DialogContent className="sm:max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>멤버 제외</DialogTitle>
+            <DialogDescription>
+              멤버 제외는 직접 처리할 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+            <p>관리자에게 문의해주세요.</p>
+            <p className="text-slate-500">kcs19542001@gmail.com</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setMemberRemoveDialogOpen(false)}>
+              확인
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 공통 확인/알림 다이얼로그 */}
+      <ConfirmDialog
+        open={dialogState.open}
+        onOpenChange={(open) => setDialogState((prev) => ({ ...prev, open }))}
+        title={dialogState.title}
+        description={dialogState.description}
+        mode={dialogState.mode}
+        variant={dialogState.variant}
+        confirmText={dialogState.confirmText}
+        onConfirm={dialogState.onConfirm}
+      />
     </div>
   );
 }

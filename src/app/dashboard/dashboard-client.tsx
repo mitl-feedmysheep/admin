@@ -81,7 +81,8 @@ interface BirthdayMember {
 }
 
 interface BirthdayData {
-  weekRange: { start: string; end: string };
+  targetYear: number;
+  targetMonth: number;
   members: BirthdayMember[];
 }
 
@@ -507,26 +508,23 @@ export function DashboardClient() {
         ))}
       </div>
 
-      {/* 주간 생일 */}
+      {/* 월간 생일 */}
       <Card className="border-slate-200 dark:border-slate-800">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Cake className="h-5 w-5 text-pink-500" />
               <CardTitle className="text-slate-900 dark:text-white">
-                {birthdayOffset === 0
-                  ? "이번 주 생일"
-                  : birthdayOffset === -1
-                    ? "지난 주 생일"
-                    : birthdayOffset === 1
-                      ? "다음 주 생일"
-                      : `${birthdayOffset > 0 ? "+" : ""}${birthdayOffset}주 생일`}
+                {birthdayData
+                  ? `${birthdayData.targetYear}년 ${birthdayData.targetMonth}월 생일`
+                  : birthdayOffset === 0
+                    ? "이번달 생일"
+                    : birthdayOffset === -1
+                      ? "지난달 생일"
+                      : birthdayOffset === 1
+                        ? "다음달 생일"
+                        : `${birthdayOffset > 0 ? "+" : ""}${birthdayOffset}개월 생일`}
               </CardTitle>
-              {birthdayData && (
-                <span className="text-xs text-slate-400">
-                  ({birthdayData.weekRange.start} ~ {birthdayData.weekRange.end})
-                </span>
-              )}
             </div>
             <div className="flex items-center gap-1">
               <Button
@@ -546,7 +544,7 @@ export function DashboardClient() {
                   onClick={() => setBirthdayOffset(0)}
                   disabled={birthdayLoading}
                 >
-                  이번 주
+                  이번달
                 </Button>
               )}
               <Button
@@ -568,35 +566,34 @@ export function DashboardClient() {
               <span className="text-sm text-slate-400">로딩중...</span>
             </div>
           ) : !birthdayData || birthdayData.members.length === 0 ? (
-            <p className="py-2 text-sm text-slate-400">해당 주에 생일인 멤버가 없습니다.</p>
+            <p className="py-2 text-sm text-slate-400">해당 월에 생일인 멤버가 없습니다.</p>
           ) : (
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto">
               {birthdayData.members.map((m) => (
                 <div
                   key={m.id}
-                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm ${
                     m.isToday
                       ? "border-pink-300 bg-pink-50 dark:border-pink-700 dark:bg-pink-900/20"
                       : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/50"
                   }`}
                 >
-                  <Cake className={`h-4 w-4 ${m.isToday ? "text-pink-500" : "text-slate-400"}`} />
-                  <span className="text-xs text-slate-400">{m.birthYear}</span>
+                  <Cake className={`h-3.5 w-3.5 ${m.isToday ? "text-pink-500" : "text-slate-400"}`} />
                   <span className="font-medium text-slate-900 dark:text-white">
                     {m.name}
                   </span>
                   {m.sex && (
-                    <span className={`inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium ${
-                      m.sex === "M"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                        : "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300"
-                    }`}>
+                    <span className="text-xs text-slate-400">
                       {m.sex === "M" ? "남" : "여"}
                     </span>
                   )}
-                  <span className={`text-xs ${m.isToday ? "font-semibold text-pink-600 dark:text-pink-400" : "text-slate-500 dark:text-slate-400"}`}>
+                  <span className={`inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium ${
+                    m.isToday
+                      ? "bg-pink-200 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300"
+                      : "bg-pink-50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400"
+                  }`}>
                     {m.month}/{m.day}({m.dayName})
-                    {m.isToday && " 오늘!"}
+                    {m.isToday && " 🎂"}
                   </span>
                 </div>
               ))}

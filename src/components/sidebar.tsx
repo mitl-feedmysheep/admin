@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, 
   Users, 
-  Settings, 
+  UsersRound,
   LogOut,
   Church,
   RefreshCcw,
@@ -17,10 +17,13 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEffect, useState } from "react";
 
-const navigation = [
-  { name: "대시보드", href: "/dashboard", icon: LayoutDashboard },
-  { name: "교적부", href: "/members", icon: Users },
-  { name: "관리", href: "/manage", icon: Settings },
+const navigation: ({ type: "link"; name: string; href: string; icon: typeof LayoutDashboard } | { type: "divider" })[] = [
+  { type: "link", name: "대시보드", href: "/dashboard", icon: LayoutDashboard },
+  { type: "divider" },
+  { type: "link", name: "교적부", href: "/members", icon: Users },
+  { type: "divider" },
+  { type: "link", name: "교회 관리", href: "/manage/church", icon: Church },
+  { type: "link", name: "소모임 관리", href: "/manage/group", icon: UsersRound },
 ];
 
 interface AdminChurch {
@@ -223,7 +226,10 @@ export function Sidebar({ churchId, churchName, memberName }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navigation.map((item) => {
+        {navigation.map((item, index) => {
+          if (item.type === "divider") {
+            return <div key={`divider-${index}`} className="my-2 border-t border-slate-700/50" />;
+          }
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link

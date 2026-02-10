@@ -4,8 +4,8 @@ import { getSession } from "@/lib/auth";
 
 /**
  * GET /api/dashboard/birthdays?offset=0
- * 주 단위 생일 멤버 목록 (월~일 기준)
- * offset: 0=이번 주, -1=지난 주, 1=다음 주, ...
+ * 월 단위 생일 멤버 목록
+ * offset: 0=이번 달, -1=지난 달, 1=다음 달, ...
  */
 export async function GET(request: NextRequest) {
   try {
@@ -19,23 +19,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const offset = parseInt(searchParams.get("offset") || "0");
 
-    // 이번 주 월요일 계산
+    // 대상 월 계산
     const today = new Date();
-    const dayOfWeek = today.getDay(); // 0=일, 1=월, ..., 6=토
-    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + diffToMonday + offset * 7);
-    monday.setHours(0, 0, 0, 0);
-
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
-
-    const monMonth = monday.getMonth() + 1;
-    const monDay = monday.getDate();
-    const sunMonth = sunday.getMonth() + 1;
-    const sunDay = sunday.getDate();
+    const targetDate = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+    const targetMonth = targetDate.getMonth() + 1; // 1~12
+    const targetYear = targetDate.getFullYear();
 
     // 해당 교회의 활성 멤버 조회
     const churchMembers = await prisma.church_member.findMany({
@@ -58,39 +46,23 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // 생일이 해당 주(월~일) 범위에 해당하는 멤버 필터
+    // 생일이 해당 월에 해당하는 멤버 필터
     const birthdayMembers = churchMembers
       .filter((cm) => {
         if (!cm.member.birthday) return false;
         const bday = new Date(cm.member.birthday);
         const bMonth = bday.getMonth() + 1;
-        const bDay = bday.getDate();
-
-        if (monMonth === sunMonth) {
-          return bMonth === monMonth && bDay >= monDay && bDay <= sunDay;
-        } else {
-          return (
-            (bMonth === monMonth && bDay >= monDay) ||
-            (bMonth === sunMonth && bDay <= sunDay)
-          );
-        }
+        return bMonth === targetMonth;
       })
       .map((cm) => {
         const bday = new Date(cm.member.birthday!);
         const bMonth = bday.getMonth() + 1;
         const bDay = bday.getDate();
 
-        // 해당 주 내 실제 생일 날짜 계산 (요일 표시용)
-        const birthdayThisWeek = new Date(monday);
-        for (let d = new Date(monday); d <= sunday; d.setDate(d.getDate() + 1)) {
-          if (d.getMonth() + 1 === bMonth && d.getDate() === bDay) {
-            birthdayThisWeek.setTime(d.getTime());
-            break;
-          }
-        }
-
+        // 해당 월 내 실제 생일 날짜의 요일 계산
+        const birthdayThisMonth = new Date(targetYear, targetMonth - 1, bDay);
         const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-        const dayName = dayNames[birthdayThisWeek.getDay()];
+        const dayName = dayNames[birthdayThisMonth.getDay()];
 
         const birthYear = bday.getFullYear() % 100;
 
@@ -115,10 +87,8 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         offset,
-        weekRange: {
-          start: `${monMonth}.${monDay}`,
-          end: `${sunMonth}.${sunDay}`,
-        },
+        targetYear,
+        targetMonth,
         members: birthdayMembers,
       },
     });
