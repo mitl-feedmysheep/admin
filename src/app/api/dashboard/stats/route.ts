@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // 2. 해당 연도에 "활동 중인" 소모임 집계
+    // 2. 해당 연도에 "활동 중인" 소그룹 집계
     // 조건: 연말 이전에 시작 AND (연초 이후에 끝나거나 아직 안 끝남)
     const yearStart = new Date(`${year}-01-01`);
     const yearEnd = new Date(`${year}-12-31`);

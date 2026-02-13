@@ -23,7 +23,7 @@ const navigation: ({ type: "link"; name: string; href: string; icon: typeof Layo
   { type: "link", name: "교적부", href: "/members", icon: Users },
   { type: "divider" },
   { type: "link", name: "교회 관리", href: "/manage/church", icon: Church },
-  { type: "link", name: "소모임 관리", href: "/manage/group", icon: UsersRound },
+  { type: "link", name: "소그룹 관리", href: "/manage/group", icon: UsersRound },
 ];
 
 interface AdminChurch {

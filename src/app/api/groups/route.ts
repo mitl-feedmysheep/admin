@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 
 /**
  * GET /api/groups?year=2026
- * 교회에 속한 소모임 목록 조회 (연도 필터 지원)
+ * 교회에 속한 소그룹 목록 조회 (연도 필터 지원)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const yearParam = searchParams.get("year");
     const churchId = session.churchId;
 
-    // 연도 필터 조건: 해당 연도에 활동 중인 소모임
+    // 연도 필터 조건: 해당 연도에 활동 중인 소그룹
     // start_date <= 연도 말 AND (end_date >= 연도 초 OR end_date IS NULL)
     const yearFilter = yearParam
       ? {
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         }
       : {};
 
-    // 교회에 속한 활성 소모임 목록 (멤버 수 포함)
+    // 교회에 속한 활성 소그룹 목록 (멤버 수 포함)
     const groups = await prisma.group.findMany({
       where: {
         church_id: churchId,
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Groups list error:", error);
     return NextResponse.json(
-      { error: "소모임 목록 조회 중 오류가 발생했습니다." },
+      { error: "소그룹 목록 조회 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/groups
- * 새 소모임 생성 + activity_log 기록
+ * 새 소그룹 생성 + activity_log 기록
  * Body: { name, description?, startDate?, endDate? }
  */
 export async function POST(request: NextRequest) {
@@ -114,12 +114,12 @@ export async function POST(request: NextRequest) {
     // 필수 필드 검증
     if (!name || !name.trim()) {
       return NextResponse.json(
-        { error: "소모임 이름을 입력해주세요." },
+        { error: "소그룹 이름을 입력해주세요." },
         { status: 400 }
       );
     }
 
-    // 같은 교회에 동일 이름의 활성 소모임이 있는지 확인
+    // 같은 교회에 동일 이름의 활성 소그룹이 있는지 확인
     const existing = await prisma.group.findFirst({
       where: {
         church_id: session.churchId,
@@ -130,16 +130,16 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       return NextResponse.json(
-        { error: "이미 동일한 이름의 소모임이 존재합니다." },
+        { error: "이미 동일한 이름의 소그룹이 존재합니다." },
         { status: 409 }
       );
     }
 
     const groupId = randomUUID();
 
-    // 트랜잭션: 소모임 생성 + activity_log 기록
+    // 트랜잭션: 소그룹 생성 + activity_log 기록
     await prisma.$transaction(async (tx) => {
-      // 소모임 생성
+      // 소그룹 생성
       await tx.group.create({
         data: {
           id: groupId,
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Group create error:", error);
     return NextResponse.json(
-      { error: "소모임 생성 중 오류가 발생했습니다." },
+      { error: "소그룹 생성 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }

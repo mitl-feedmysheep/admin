@@ -66,10 +66,10 @@ export function GroupsClient() {
       if (json.success) {
         setGroups(json.data.groups);
       } else {
-        toast.error(json.error || "소모임 목록을 불러오지 못했습니다.");
+        toast.error(json.error || "소그룹 목록을 불러오지 못했습니다.");
       }
     } catch {
-      toast.error("소모임 목록을 불러오지 못했습니다.");
+      toast.error("소그룹 목록을 불러오지 못했습니다.");
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ export function GroupsClient() {
 
   const handleCreate = async () => {
     if (!formName.trim()) {
-      toast.error("소모임 이름을 입력해주세요.");
+      toast.error("소그룹 이름을 입력해주세요.");
       return;
     }
 
@@ -116,15 +116,15 @@ export function GroupsClient() {
       const json = await res.json();
 
       if (json.success) {
-        toast.success(`"${json.data.name}" 소모임이 생성되었습니다.`);
+        toast.success(`"${json.data.name}" 소그룹이 생성되었습니다.`);
         setDialogOpen(false);
         resetForm();
         fetchGroups();
       } else {
-        toast.error(json.error || "소모임 생성에 실패했습니다.");
+        toast.error(json.error || "소그룹 생성에 실패했습니다.");
       }
     } catch {
-      toast.error("소모임 생성 중 오류가 발생했습니다.");
+      toast.error("소그룹 생성 중 오류가 발생했습니다.");
     } finally {
       setCreating(false);
     }
@@ -136,10 +136,10 @@ export function GroupsClient() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            소모임 관리
+            소그룹 관리
           </h1>
           <p className="text-slate-500 dark:text-slate-400">
-            소모임 현황을 확인하고 새로운 소모임을 만들 수 있습니다
+            소그룹 현황을 확인하고 새로운 소그룹을 만들 수 있습니다
           </p>
         </div>
 
@@ -147,20 +147,20 @@ export function GroupsClient() {
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              새 소모임
+              새 소그룹
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>새 소모임 만들기</DialogTitle>
+              <DialogTitle>새 소그룹 만들기</DialogTitle>
               <DialogDescription>
-                소모임 정보를 입력하고 생성 버튼을 눌러주세요.
+                소그룹 정보를 입력하고 생성 버튼을 눌러주세요.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="group-name">
-                  소모임 이름 <span className="text-red-500">*</span>
+                  소그룹 이름 <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="group-name"
@@ -173,7 +173,7 @@ export function GroupsClient() {
                 <Label htmlFor="group-description">설명</Label>
                 <Textarea
                   id="group-description"
-                  placeholder="소모임에 대한 간단한 설명"
+                  placeholder="소그룹에 대한 간단한 설명"
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   rows={3}
@@ -227,7 +227,7 @@ export function GroupsClient() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  전체 소모임
+                  전체 소그룹
                 </p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {groups.length}
@@ -258,7 +258,7 @@ export function GroupsClient() {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <Input
-          placeholder="소모임명 또는 리더 이름으로 검색..."
+          placeholder="소그룹명 또는 리더 이름으로 검색..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
@@ -275,11 +275,11 @@ export function GroupsClient() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Users className="mb-4 h-12 w-12 text-slate-300" />
             <p className="text-lg font-medium text-slate-500 dark:text-slate-400">
-              {searchQuery ? "검색 결과가 없습니다" : "등록된 소모임이 없습니다"}
+              {searchQuery ? "검색 결과가 없습니다" : "등록된 소그룹이 없습니다"}
             </p>
             {!searchQuery && (
               <p className="mt-1 text-sm text-slate-400">
-                위의 &quot;새 소모임&quot; 버튼으로 첫 소모임을 만들어보세요.
+                위의 &quot;새 소그룹&quot; 버튼으로 첫 소그룹을 만들어보세요.
               </p>
             )}
           </CardContent>

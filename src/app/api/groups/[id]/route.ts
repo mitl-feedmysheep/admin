@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 
 /**
  * GET /api/groups/[id]
- * 소모임 상세 (멤버 목록 포함)
+ * 소그룹 상세 (멤버 목록 포함)
  */
 export async function GET(
   _request: NextRequest,
@@ -49,7 +49,7 @@ export async function GET(
 
     if (!group) {
       return NextResponse.json(
-        { error: "소모임을 찾을 수 없습니다." },
+        { error: "소그룹을 찾을 수 없습니다." },
         { status: 404 }
       );
     }
@@ -71,7 +71,7 @@ export async function GET(
   } catch (error) {
     console.error("Group detail error:", error);
     return NextResponse.json(
-      { error: "소모임 조회 중 오류가 발생했습니다." },
+      { error: "소그룹 조회 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }
@@ -79,7 +79,7 @@ export async function GET(
 
 /**
  * POST /api/groups/[id]/members (→ [id] route에서 처리)
- * 소모임에 멤버 일괄 할당 + activity_log 기록
+ * 소그룹에 멤버 일괄 할당 + activity_log 기록
  * Body: { memberIds: string[], role: "LEADER" | "SUB_LEADER" | "MEMBER" }
  */
 export async function POST(
@@ -125,12 +125,12 @@ export async function POST(
 
     if (!group) {
       return NextResponse.json(
-        { error: "소모임을 찾을 수 없습니다." },
+        { error: "소그룹을 찾을 수 없습니다." },
         { status: 404 }
       );
     }
 
-    // 이미 해당 소모임에 속한 멤버 확인
+    // 이미 해당 소그룹에 속한 멤버 확인
     const existingMembers = await prisma.group_member.findMany({
       where: {
         group_id: groupId,
@@ -145,7 +145,7 @@ export async function POST(
 
     if (newMemberIds.length === 0) {
       return NextResponse.json(
-        { error: "선택한 멤버가 이미 모두 해당 소모임에 속해있습니다." },
+        { error: "선택한 멤버가 이미 모두 해당 소그룹에 속해있습니다." },
         { status: 409 }
       );
     }
@@ -198,7 +198,7 @@ export async function POST(
 
 /**
  * PATCH /api/groups/[id]
- * 소모임 이름 변경 + activity_log 기록
+ * 소그룹 이름 변경 + activity_log 기록
  * Body: { name: string }
  */
 export async function PATCH(
@@ -220,7 +220,7 @@ export async function PATCH(
 
     if (!name || !name.trim()) {
       return NextResponse.json(
-        { error: "소모임 이름을 입력해주세요." },
+        { error: "소그룹 이름을 입력해주세요." },
         { status: 400 }
       );
     }
@@ -236,12 +236,12 @@ export async function PATCH(
 
     if (!group) {
       return NextResponse.json(
-        { error: "소모임을 찾을 수 없습니다." },
+        { error: "소그룹을 찾을 수 없습니다." },
         { status: 404 }
       );
     }
 
-    // 같은 교회에 동일 이름의 다른 활성 소모임이 있는지 확인
+    // 같은 교회에 동일 이름의 다른 활성 소그룹이 있는지 확인
     const duplicate = await prisma.group.findFirst({
       where: {
         church_id: session.churchId,
@@ -253,7 +253,7 @@ export async function PATCH(
 
     if (duplicate) {
       return NextResponse.json(
-        { error: "이미 동일한 이름의 소모임이 존재합니다." },
+        { error: "이미 동일한 이름의 소그룹이 존재합니다." },
         { status: 409 }
       );
     }
@@ -288,7 +288,7 @@ export async function PATCH(
   } catch (error) {
     console.error("Group update error:", error);
     return NextResponse.json(
-      { error: "소모임 수정 중 오류가 발생했습니다." },
+      { error: "소그룹 수정 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }

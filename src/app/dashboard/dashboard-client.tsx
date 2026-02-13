@@ -391,7 +391,7 @@ export function DashboardClient() {
                       Number(selectedMonth) === currentMonth && 
                       weeks.findIndex((w) => w.key === selectedWeek) === weeks.length - 1);
   
-  // 소모임 클릭 핸들러
+  // 소그룹 클릭 핸들러
   const handleGroupClick = (gathering: GatheringData) => {
     if (!gathering.created || !gathering.gatheringId) return;
     setSelectedGathering(gathering);
@@ -407,12 +407,12 @@ export function DashboardClient() {
     const weekLabel = selectedWeekInfo?.label || selectedWeek;
     
     const excelData = gatherings.map((g) => ({
-      소모임: g.groupName,
+      소그룹: g.groupName,
       생성여부: g.created ? "O" : "X",
       "예배 출석": g.worshipAttendance,
       "예배 출석률": g.worshipRate,
-      "소모임 출석": g.gatheringAttendance,
-      "소모임 출석률": g.gatheringRate,
+      "소그룹 출석": g.gatheringAttendance,
+      "소그룹 출석률": g.gatheringRate,
     }));
     
     const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -432,21 +432,21 @@ export function DashboardClient() {
       icon: Users,
     },
     {
-      title: "활성 소모임",
+      title: "활성 소그룹",
       value: stats ? String(stats.activeGroups) : "-",
-      description: "현재 운영중인 소모임",
+      description: "현재 운영중인 소그룹",
       icon: UsersRound,
     },
     {
       title: "전체 예배 참석률",
       value: stats?.worshipRate || "-",
-      description: "생성된 소모임 기준",
+      description: "생성된 소그룹 기준",
       icon: Church,
     },
     {
-      title: "전체 소모임 참석률",
+      title: "전체 소그룹 참석률",
       value: stats?.gatheringRate || "-",
-      description: "생성된 소모임 기준",
+      description: "생성된 소그룹 기준",
       icon: HandHeart,
     },
   ];
@@ -689,7 +689,7 @@ export function DashboardClient() {
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-700">
                     <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
-                      소모임
+                      소그룹
                     </th>
                     <th className="px-4 py-3 text-center font-medium text-slate-500 dark:text-slate-400">
                       생성여부
@@ -701,7 +701,7 @@ export function DashboardClient() {
                       예배 출석
                     </th>
                     <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
-                      소모임 출석
+                      소그룹 출석
                     </th>
                     <th className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
                       특이사항
@@ -786,7 +786,7 @@ export function DashboardClient() {
         </CardContent>
       </Card>
 
-      {/* 소모임 상세 Sheet */}
+      {/* 소그룹 상세 Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="w-[500px] sm:w-[560px] sm:max-w-none p-0 flex flex-col">
           {/* 헤더 영역 */}
@@ -893,7 +893,7 @@ export function DashboardClient() {
                 
                 {/* 멤버 목록 */}
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                  소모임원 ({gatheringDetail.members.length}명)
+                  소그룹원 ({gatheringDetail.members.length}명)
                 </h3>
                 <div className="space-y-3">
                   {gatheringDetail.members.map((member) => (
@@ -927,7 +927,7 @@ export function DashboardClient() {
                               </span>
                             </div>
                             {!member.gatheringAttendance && (
-                              <span className="text-xs text-slate-400">소모임 불참</span>
+                              <span className="text-xs text-slate-400">소그룹 불참</span>
                             )}
                           </div>
                         </div>
@@ -946,7 +946,7 @@ export function DashboardClient() {
                               : "bg-slate-100 text-slate-400 dark:bg-slate-700"
                           }`}>
                             {member.gatheringAttendance ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                            소모임
+                            소그룹
                           </span>
                         </div>
                       </div>
@@ -1015,7 +1015,7 @@ export function DashboardClient() {
                         <Users className="h-5 w-5 text-slate-400" />
                       </div>
                       <p className="text-sm text-slate-500 dark:text-slate-400">
-                        소모임원 데이터가 없습니다
+                        소그룹원 데이터가 없습니다
                       </p>
                     </div>
                   )}

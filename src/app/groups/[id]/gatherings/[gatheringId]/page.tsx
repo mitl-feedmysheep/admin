@@ -14,7 +14,7 @@ const mockGathering = {
   date: "2026-01-04",
   startedAt: "13:00",
   endedAt: "14:30",
-  place: "본당 3층 소모임실",
+  place: "본당 3층 소그룹실",
   description: "2026년 첫 셀모임",
   leaderComment: "새해 첫 모임이라 활동지를 진행했습니다. 서로의 2026년 기도제목을 나누는 시간을 가졌습니다.",
 };

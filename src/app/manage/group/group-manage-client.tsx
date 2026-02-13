@@ -13,7 +13,7 @@ import { UsersRound, UserCog, Plus, Check, Search, UserMinus, X, Loader2, Trash2
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog, ConfirmDialogVariant } from "@/components/confirm-dialog";
 
-// 소모임 타입
+// 소그룹 타입
 interface Group {
   id: string;
   name: string;
@@ -51,7 +51,7 @@ export function GroupManageClient() {
   // 하위 탭 상태
   const [groupSubTab, setGroupSubTab] = useState("create-group");
 
-  // 소모임 생성 폼 상태
+  // 소그룹 생성 폼 상태
   const [groupForm, setGroupForm] = useState({
     name: "",
     description: "",
@@ -59,7 +59,7 @@ export function GroupManageClient() {
     endDate: "",
   });
 
-  // 소모임 목록 상태
+  // 소그룹 목록 상태
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -113,7 +113,7 @@ export function GroupManageClient() {
     return () => clearTimeout(timer);
   }, [memberSearchQuery]);
 
-  // 소모임 멤버 목록 불러오기
+  // 소그룹 멤버 목록 불러오기
   const fetchGroupMembers = useCallback(async (groupId: string) => {
     if (!groupId) {
       setMembersInSelectedGroup([]);
@@ -129,7 +129,7 @@ export function GroupManageClient() {
         setMembersInSelectedGroup([]);
       }
     } catch {
-      console.error("소모임 멤버 조회 실패");
+      console.error("소그룹 멤버 조회 실패");
       setMembersInSelectedGroup([]);
     } finally {
       setRemoveGroupLoading(false);
@@ -144,7 +144,7 @@ export function GroupManageClient() {
     }
   }, [removeGroupFilter, fetchGroupMembers]);
 
-  // 소모임 목록 불러오기
+  // 소그룹 목록 불러오기
   const fetchGroups = useCallback(async (year?: string) => {
     setGroupsLoading(true);
     try {
@@ -155,7 +155,7 @@ export function GroupManageClient() {
         setGroups(data.data.groups);
       }
     } catch {
-      console.error("소모임 목록 불러오기 실패");
+      console.error("소그룹 목록 불러오기 실패");
     } finally {
       setGroupsLoading(false);
     }
@@ -186,15 +186,15 @@ export function GroupManageClient() {
       const data = await res.json();
 
       if (!res.ok) {
-        setGroupCreateMessage({ type: "error", text: data.error || "소모임 생성에 실패했습니다." });
+        setGroupCreateMessage({ type: "error", text: data.error || "소그룹 생성에 실패했습니다." });
         return;
       }
 
-      setGroupCreateMessage({ type: "success", text: `"${data.data.name}" 소모임이 생성되었습니다.` });
+      setGroupCreateMessage({ type: "success", text: `"${data.data.name}" 소그룹이 생성되었습니다.` });
       setGroupForm({ name: "", description: "", startDate: "", endDate: "" });
       fetchGroups(groupYearFilter);
     } catch {
-      setGroupCreateMessage({ type: "error", text: "소모임 생성 중 오류가 발생했습니다." });
+      setGroupCreateMessage({ type: "error", text: "소그룹 생성 중 오류가 발생했습니다." });
     } finally {
       setIsCreatingGroup(false);
     }
@@ -292,9 +292,9 @@ export function GroupManageClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">소모임 관리</h1>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">소그룹 관리</h1>
         <p className="text-slate-500 dark:text-slate-400">
-          소모임 생성 및 멤버를 관리합니다
+          소그룹 생성 및 멤버를 관리합니다
         </p>
       </div>
 
@@ -305,7 +305,7 @@ export function GroupManageClient() {
             className="gap-2 transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
           >
             <UsersRound className="h-4 w-4" />
-            소모임 생성
+            소그룹 생성
           </TabsTrigger>
           <TabsTrigger
             value="assign-member"
@@ -316,18 +316,18 @@ export function GroupManageClient() {
           </TabsTrigger>
         </TabsList>
 
-        {/* 소모임 생성 */}
+        {/* 소그룹 생성 */}
         <TabsContent value="create-group" className="mt-6">
           <div className="grid gap-6 lg:grid-cols-2">
             <Card className="border-slate-200 dark:border-slate-800">
               <CardHeader>
-                <CardTitle className="text-slate-900 dark:text-white">새 소모임 생성</CardTitle>
-                <CardDescription>새로운 소모임(셀)을 생성합니다.</CardDescription>
+                <CardTitle className="text-slate-900 dark:text-white">새 소그룹 생성</CardTitle>
+                <CardDescription>새로운 소그룹(셀)을 생성합니다.</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleCreateGroup} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="groupName">소모임 이름 *</Label>
+                    <Label htmlFor="groupName">소그룹 이름 *</Label>
                     <Input id="groupName" value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} placeholder="예: 홍길동 셀" required />
                   </div>
                   <div className="grid gap-4 grid-cols-2">
@@ -354,12 +354,12 @@ export function GroupManageClient() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="groupDescription">설명</Label>
-                    <Textarea id="groupDescription" value={groupForm.description} onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })} placeholder="소모임에 대한 설명을 입력하세요" className="min-h-[80px]" />
+                    <Textarea id="groupDescription" value={groupForm.description} onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })} placeholder="소그룹에 대한 설명을 입력하세요" className="min-h-[80px]" />
                   </div>
                   <div className="flex justify-end">
                     <Button type="submit" className="gap-2 bg-slate-800 hover:bg-slate-700" disabled={isCreatingGroup || !groupForm.name.trim()}>
                       {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                      {isCreatingGroup ? "생성 중..." : "소모임 생성"}
+                      {isCreatingGroup ? "생성 중..." : "소그룹 생성"}
                     </Button>
                   </div>
                   {groupCreateMessage && (
@@ -375,8 +375,8 @@ export function GroupManageClient() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-slate-900 dark:text-white">소모임 목록</CardTitle>
-                    <CardDescription>{groupYearFilter}년 소모임 ({groups.length}개)</CardDescription>
+                    <CardTitle className="text-slate-900 dark:text-white">소그룹 목록</CardTitle>
+                    <CardDescription>{groupYearFilter}년 소그룹 ({groups.length}개)</CardDescription>
                   </div>
                   <Select value={groupYearFilter} onValueChange={setGroupYearFilter}>
                     <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
@@ -398,7 +398,7 @@ export function GroupManageClient() {
                 ) : groups.length === 0 ? (
                   <div className="py-8 text-center">
                     <UsersRound className="mx-auto h-8 w-8 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500">등록된 소모임이 없습니다.</p>
+                    <p className="mt-2 text-sm text-slate-500">등록된 소그룹이 없습니다.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -450,9 +450,9 @@ export function GroupManageClient() {
               <CardHeader>
                 <CardTitle className="text-slate-900 dark:text-white flex items-center gap-2">
                   <UserCog className="h-5 w-5" />
-                  소모임 멤버 할당
+                  소그룹 멤버 할당
                 </CardTitle>
-                <CardDescription>멤버를 검색하여 소모임에 할당하고 역할을 부여합니다.</CardDescription>
+                <CardDescription>멤버를 검색하여 소그룹에 할당하고 역할을 부여합니다.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -505,9 +505,9 @@ export function GroupManageClient() {
 
                   <div className="grid gap-4 md:grid-cols-3">
                     <div className="space-y-2">
-                      <Label>소모임 선택 *</Label>
+                      <Label>소그룹 선택 *</Label>
                       <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-                        <SelectTrigger><SelectValue placeholder="소모임을 선택하세요" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="소그룹을 선택하세요" /></SelectTrigger>
                         <SelectContent>
                           {groups.map((group) => <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>)}
                         </SelectContent>
@@ -545,16 +545,16 @@ export function GroupManageClient() {
               <CardHeader>
                 <CardTitle className="text-slate-900 dark:text-white flex items-center gap-2">
                   <UserMinus className="h-5 w-5" />
-                  소모임 멤버 제외
+                  소그룹 멤버 제외
                 </CardTitle>
-                <CardDescription>소모임에서 멤버를 제외합니다.</CardDescription>
+                <CardDescription>소그룹에서 멤버를 제외합니다.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>소모임 선택</Label>
+                    <Label>소그룹 선택</Label>
                     <Select value={removeGroupFilter} onValueChange={setRemoveGroupFilter}>
-                      <SelectTrigger className="max-w-sm"><SelectValue placeholder="소모임을 선택하세요" /></SelectTrigger>
+                      <SelectTrigger className="max-w-sm"><SelectValue placeholder="소그룹을 선택하세요" /></SelectTrigger>
                       <SelectContent>
                         {groups.map((group) => <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>)}
                       </SelectContent>
@@ -574,7 +574,7 @@ export function GroupManageClient() {
                           멤버 목록을 불러오는 중...
                         </div>
                       ) : membersInSelectedGroup.length === 0 ? (
-                        <div className="p-6 text-center text-slate-500">해당 소모임에 멤버가 없습니다.</div>
+                        <div className="p-6 text-center text-slate-500">해당 소그룹에 멤버가 없습니다.</div>
                       ) : (
                         <div className="divide-y divide-slate-100 dark:divide-slate-700">
                           {membersInSelectedGroup.map((member) => (
@@ -607,12 +607,12 @@ export function GroupManageClient() {
         </TabsContent>
       </Tabs>
 
-      {/* 소모임 삭제 안내 다이얼로그 */}
+      {/* 소그룹 삭제 안내 다이얼로그 */}
       <Dialog open={groupDeleteDialogOpen} onOpenChange={setGroupDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[360px]">
           <DialogHeader>
-            <DialogTitle>소모임 삭제</DialogTitle>
-            <DialogDescription>소모임 삭제는 직접 처리할 수 없습니다.</DialogDescription>
+            <DialogTitle>소그룹 삭제</DialogTitle>
+            <DialogDescription>소그룹 삭제는 직접 처리할 수 없습니다.</DialogDescription>
           </DialogHeader>
           <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
             <p>관리자에게 문의해주세요.</p>
@@ -624,7 +624,7 @@ export function GroupManageClient() {
         </DialogContent>
       </Dialog>
 
-      {/* 소모임 멤버 제외 안내 다이얼로그 */}
+      {/* 소그룹 멤버 제외 안내 다이얼로그 */}
       <Dialog open={memberRemoveDialogOpen} onOpenChange={setMemberRemoveDialogOpen}>
         <DialogContent className="sm:max-w-[360px]">
           <DialogHeader>
