@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { randomUUID } from "crypto";
 
 /**
  * POST /api/manage/join-requests/reject
@@ -41,13 +42,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // status → DECLINED (교회 멤버 추가 없음)
-    await prisma.church_member_request.update({
-      where: { id: requestId },
-      data: {
-        status: "DECLINED",
-        completed_by: session.memberId,
-      },
+    // 트랜잭션: status → DECLINED + activity_log
+    await prisma.$transaction(async (tx) => {
+      await tx.church_member_request.update({
+        where: { id: requestId },
+        data: { status: "DECLINED" },
+      });
+
+      await tx.activity_log.create({
+        data: {
+          id: randomUUID(),
+          church_id: session.churchId,
+          actor_id: session.memberId,
+          action_type: "DECLINE",
+          entity_type: "CHURCH_MEMBER_REQUEST",
+          entity_id: requestId,
+        },
+      });
     });
 
     console.log(`Join request rejected: ${requestId} by ${session.memberName}`);

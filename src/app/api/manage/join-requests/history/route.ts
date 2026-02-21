@@ -39,21 +39,35 @@ export async function GET() {
       take: 50,
     });
 
-    // completed_by 멤버 이름 일괄 조회
-    const completedByIds = requests
-      .map((r) => r.completed_by)
-      .filter((id): id is string => id !== null);
+    const requestIds = requests.map((r) => r.id);
 
-    const completedByMembers = completedByIds.length > 0
+    const activityLogs = requestIds.length > 0
+      ? await prisma.activity_log.findMany({
+          where: {
+            entity_type: "CHURCH_MEMBER_REQUEST",
+            entity_id: { in: requestIds },
+            action_type: { in: ["APPROVE", "DECLINE"] },
+          },
+          orderBy: { created_at: "desc" },
+        })
+      : [];
+
+    const actorIds = [...new Set(activityLogs.map((log) => log.actor_id))];
+    const actors = actorIds.length > 0
       ? await prisma.member.findMany({
-          where: { id: { in: completedByIds } },
+          where: { id: { in: actorIds } },
           select: { id: true, name: true },
         })
       : [];
 
+    const actorMap: Record<string, string> = {};
+    actors.forEach((m) => { actorMap[m.id] = m.name; });
+
     const completedByMap: Record<string, string> = {};
-    completedByMembers.forEach((m) => {
-      completedByMap[m.id] = m.name;
+    activityLogs.forEach((log) => {
+      if (!completedByMap[log.entity_id]) {
+        completedByMap[log.entity_id] = actorMap[log.actor_id] || "알 수 없음";
+      }
     });
 
     const data = requests.map((req) => ({
@@ -65,7 +79,7 @@ export async function GET() {
       birthday: req.member.birthday?.toISOString().split("T")[0] || "",
       phone: req.member.phone || "",
       status: req.status,
-      completedBy: req.completed_by ? completedByMap[req.completed_by] || "알 수 없음" : "",
+      completedBy: completedByMap[req.id] || "",
       requestedAt: req.created_at.toISOString().split("T")[0],
       completedAt: req.updated_at.toISOString().split("T")[0],
     }));

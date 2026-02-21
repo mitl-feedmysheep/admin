@@ -51,14 +51,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 트랜잭션: status → ACCEPTED + 교회 멤버 추가
+    // 트랜잭션: status → ACCEPTED + 교회 멤버 추가 + activity_log
     await prisma.$transaction(async (tx) => {
       await tx.church_member_request.update({
         where: { id: requestId },
-        data: {
-          status: "ACCEPTED",
-          completed_by: session.memberId,
-        },
+        data: { status: "ACCEPTED" },
       });
 
       if (!existingChurchMember) {
@@ -71,6 +68,17 @@ export async function POST(request: NextRequest) {
           },
         });
       }
+
+      await tx.activity_log.create({
+        data: {
+          id: randomUUID(),
+          church_id: session.churchId,
+          actor_id: session.memberId,
+          action_type: "APPROVE",
+          entity_type: "CHURCH_MEMBER_REQUEST",
+          entity_id: requestId,
+        },
+      });
     });
 
     console.log(`Join request approved: ${requestId} by ${session.memberName}`);
