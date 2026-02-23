@@ -80,7 +80,8 @@ export function ManageClient() {
   // 하위 탭 상태
   const [churchSubTab, setChurchSubTab] = useState("join-requests");
   const [groupSubTab, setGroupSubTab] = useState("create-group");
-  
+
+
   // 계정 생성 폼 상태
   const [accountForm, setAccountForm] = useState({
     name: "",
@@ -1603,6 +1604,7 @@ export function ManageClient() {
             </TabsContent>
           </Tabs>
         </TabsContent>
+
       </Tabs>
 
       {/* 소그룹 삭제 안내 다이얼로그 */}
