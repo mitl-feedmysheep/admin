@@ -411,9 +411,9 @@ export function ChurchManageClient() {
                         <Select value={accountForm.baptized} onValueChange={(v) => setAccountForm({ ...accountForm, baptized: v })}>
                           <SelectTrigger><SelectValue placeholder="세례여부 선택" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="YES">세례받음</SelectItem>
-                            <SelectItem value="NO">미세례</SelectItem>
-                            <SelectItem value="INFANT">유아세례</SelectItem>
+                            <SelectItem value="BAPTIZED">세례받음</SelectItem>
+                            <SelectItem value="NOT_BAPTIZED">미세례</SelectItem>
+                            <SelectItem value="PAEDOBAPTISM">유아세례</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
