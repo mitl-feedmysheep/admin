@@ -240,7 +240,7 @@ export function EventManageClient() {
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-slate-800 dark:text-white">{ev.title}</h4>
                       {ev.description && (
-                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                        <p className="whitespace-pre-line text-sm text-slate-600 dark:text-slate-400 mt-0.5">
                           {ev.description}
                         </p>
                       )}
