@@ -559,7 +559,7 @@ export function GroupManageClient() {
                     </div>
                   )}
 
-                  <div className="grid gap-4 md:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                     <div className="space-y-2">
                       <Label>소그룹 선택 *</Label>
                       <Select value={selectedGroup} onValueChange={setSelectedGroup}>
@@ -580,7 +580,7 @@ export function GroupManageClient() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex items-end">
+                    <div className="flex items-end sm:col-span-2 md:col-span-1">
                       <Button onClick={handleAssignMembers} className="w-full gap-2 bg-slate-800 hover:bg-slate-700" disabled={selectedMembers.length === 0 || !selectedGroup || !selectedRole || isAssigning}>
                         {isAssigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCog className="h-4 w-4" />}
                         {isAssigning ? "할당 중..." : `멤버 할당 (${selectedMembers.length}명)`}

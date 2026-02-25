@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { UserPlus, Plus, Copy, Check, UserCheck, Clock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { ConfirmDialog, ConfirmDialogVariant } from "@/components/confirm-dialog";
+import { cn } from "@/lib/utils";
 
 // 편입 요청 타입
 interface JoinRequest {
@@ -98,6 +99,22 @@ export function ChurchManageClient() {
   const [joinRequestTab, setJoinRequestTab] = useState<"pending" | "history">("pending");
 
   const [isCreating, setIsCreating] = useState(false);
+
+  // Email duplicate check state
+  const [emailStatus, setEmailStatus] = useState<"idle" | "checking" | "available" | "duplicate">("idle");
+
+  const handleCheckEmail = async () => {
+    const email = accountForm.email.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    setEmailStatus("checking");
+    try {
+      const res = await fetch(`/api/manage/check-email?email=${encodeURIComponent(email)}`);
+      const data = await res.json();
+      setEmailStatus(data.available ? "available" : "duplicate");
+    } catch {
+      setEmailStatus("idle");
+    }
+  };
 
   // 편입 요청 목록 불러오기
   const fetchJoinRequests = useCallback(async () => {
@@ -191,6 +208,7 @@ export function ChurchManageClient() {
   const handleResetAccountForm = () => {
     setAccountCreated(null);
     setCopied(false);
+    setEmailStatus("idle");
     setAccountForm({
       name: "",
       email: "",
@@ -273,9 +291,10 @@ export function ChurchManageClient() {
       accountForm.password.trim() !== "" &&
       accountForm.sex !== "" &&
       accountForm.birthday !== "" &&
-      stripPhoneHyphens(accountForm.phone).length >= 10
+      stripPhoneHyphens(accountForm.phone).length >= 10 &&
+      emailStatus !== "duplicate"
     );
-  }, [accountForm.name, accountForm.email, accountForm.password, accountForm.sex, accountForm.birthday, accountForm.phone]);
+  }, [accountForm.name, accountForm.email, accountForm.password, accountForm.sex, accountForm.birthday, accountForm.phone, emailStatus]);
 
   const formatBirthday = (birthday: string) => {
     const date = new Date(birthday);
@@ -358,16 +377,56 @@ export function ChurchManageClient() {
                 </div>
               ) : (
                 <form onSubmit={handleCreateAccount} className="space-y-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2 min-w-0">
                       <Label htmlFor="name">이름 *</Label>
                       <Input id="name" value={accountForm.name} onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })} placeholder="이름을 입력하세요" required />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label htmlFor="email">이메일 *</Label>
-                      <Input id="email" type="email" value={accountForm.email} onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })} placeholder="이메일을 입력하세요" required />
+                      <div className="flex gap-2">
+                        <Input
+                          id="email"
+                          type="email"
+                          value={accountForm.email}
+                          onChange={(e) => {
+                            setAccountForm({ ...accountForm, email: e.target.value });
+                            setEmailStatus("idle");
+                          }}
+                          placeholder="이메일을 입력하세요"
+                          required
+                          className={cn(
+                            "min-w-0 flex-1",
+                            emailStatus === "duplicate" && "border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/30",
+                            emailStatus === "available" && "border-emerald-500 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30",
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCheckEmail}
+                          disabled={emailStatus === "checking" || !accountForm.email.trim()}
+                          className={cn(
+                            "shrink-0 h-9 px-3 text-xs",
+                            emailStatus === "available" && "border-emerald-500 text-emerald-600",
+                            emailStatus === "duplicate" && "border-red-500 text-red-600",
+                          )}
+                        >
+                          {emailStatus === "checking" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : emailStatus === "available" ? (
+                            <><Check className="h-3.5 w-3.5 mr-1" />확인됨</>
+                          ) : (
+                            "중복확인"
+                          )}
+                        </Button>
+                      </div>
+                      {emailStatus === "duplicate" && (
+                        <p className="text-xs text-red-500">이미 사용 중인 이메일입니다.</p>
+                      )}
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label htmlFor="password">비밀번호 *</Label>
                       <div className="relative">
                         <Input id="password" type={showPassword ? "text" : "password"} value={accountForm.password} onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })} placeholder="비밀번호를 입력하세요" required className="pr-10" />
@@ -376,7 +435,7 @@ export function ChurchManageClient() {
                         </button>
                       </div>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label htmlFor="sex">성별 <span className="text-red-500">*</span></Label>
                       <Select value={accountForm.sex} onValueChange={(v) => setAccountForm({ ...accountForm, sex: v })}>
                         <SelectTrigger><SelectValue placeholder="성별 선택" /></SelectTrigger>
@@ -386,18 +445,18 @@ export function ChurchManageClient() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label htmlFor="birthday">생년월일 <span className="text-red-500">*</span></Label>
                       <Input id="birthday" type="date" value={accountForm.birthday} onChange={(e) => setAccountForm({ ...accountForm, birthday: e.target.value })} required />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label htmlFor="phone">휴대폰번호 <span className="text-red-500">*</span></Label>
                       <Input id="phone" value={accountForm.phone} onChange={(e) => setAccountForm({ ...accountForm, phone: formatPhoneNumber(e.target.value) })} placeholder="010-0000-0000" maxLength={13} required />
                     </div>
                   </div>
                   <div className="pt-2">
                     <p className="text-sm text-slate-400 dark:text-slate-500 mb-4">추가 정보 (선택사항)</p>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="address">주소</Label>
                         <Input id="address" value={accountForm.address} onChange={(e) => setAccountForm({ ...accountForm, address: e.target.value })} placeholder="주소를 입력하세요" />
@@ -487,23 +546,23 @@ export function ChurchManageClient() {
                     <div className="space-y-3">
                       {joinRequests.map((request) => (
                         <div key={request.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-4">
-                              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-lg font-medium">{request.name.charAt(0)}</div>
-                              <div>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex items-start gap-3 sm:gap-4">
+                              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-base sm:text-lg font-medium shrink-0">{request.name.charAt(0)}</div>
+                              <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                   <p className="font-semibold text-slate-900 dark:text-white">{request.name}</p>
                                   <Badge variant="outline" className="text-xs">{request.sex === "MALE" ? "남성" : "여성"}</Badge>
                                 </div>
-                                <div className="mt-1.5 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-500">
+                                <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-500">
                                   <div className="flex items-center gap-1.5"><span className="text-slate-400">생년월일</span><span>{formatBirthday(request.birthday)}</span></div>
-                                  <div className="flex items-center gap-1.5"><span className="text-slate-400">이메일</span><span>{request.email}</span></div>
+                                  <div className="flex items-center gap-1.5"><span className="text-slate-400">이메일</span><span className="truncate">{request.email}</span></div>
                                   <div className="flex items-center gap-1.5"><span className="text-slate-400">휴대폰</span><span>{request.phone}</span></div>
                                   <div className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-slate-400" /><span className="text-slate-400">{request.requestedAt} 요청</span></div>
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 self-end sm:self-start shrink-0">
                               <Button variant="outline" size="sm" onClick={() => handleRejectRequest(request.id)} disabled={rejectingId === request.id || approvingId === request.id} className="text-slate-500 hover:text-red-500 hover:border-red-300">
                                 {rejectingId === request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "거절"}
                               </Button>
@@ -537,29 +596,27 @@ export function ChurchManageClient() {
                     <div className="space-y-3">
                       {joinHistory.map((record) => (
                         <div key={record.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-4">
-                              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-lg font-medium">{record.name.charAt(0)}</div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-semibold text-slate-900 dark:text-white">{record.name}</p>
-                                  <Badge variant="outline" className="text-xs">{record.sex === "MALE" ? "남성" : "여성"}</Badge>
-                                  {record.status === "ACCEPTED" ? (
-                                    <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs">승인</Badge>
-                                  ) : (
-                                    <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs">거절</Badge>
-                                  )}
-                                </div>
-                                <div className="mt-1.5 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-500">
-                                  <div className="flex items-center gap-1.5"><span className="text-slate-400">생년월일</span><span>{formatBirthday(record.birthday)}</span></div>
-                                  <div className="flex items-center gap-1.5"><span className="text-slate-400">이메일</span><span>{record.email}</span></div>
-                                  <div className="flex items-center gap-1.5"><span className="text-slate-400">요청일</span><span>{record.requestedAt}</span></div>
-                                  <div className="flex items-center gap-1.5"><span className="text-slate-400">처리일</span><span>{record.completedAt}</span></div>
-                                </div>
-                                {record.completedBy && (
-                                  <p className="mt-1.5 text-xs text-slate-400">처리자: {record.completedBy}</p>
+                          <div className="flex items-start gap-3 sm:gap-4">
+                            <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-base sm:text-lg font-medium shrink-0">{record.name.charAt(0)}</div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-semibold text-slate-900 dark:text-white">{record.name}</p>
+                                <Badge variant="outline" className="text-xs">{record.sex === "MALE" ? "남성" : "여성"}</Badge>
+                                {record.status === "ACCEPTED" ? (
+                                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs">승인</Badge>
+                                ) : (
+                                  <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs">거절</Badge>
                                 )}
                               </div>
+                              <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-500">
+                                <div className="flex items-center gap-1.5"><span className="text-slate-400">생년월일</span><span>{formatBirthday(record.birthday)}</span></div>
+                                <div className="flex items-center gap-1.5"><span className="text-slate-400">이메일</span><span className="truncate">{record.email}</span></div>
+                                <div className="flex items-center gap-1.5"><span className="text-slate-400">요청일</span><span>{record.requestedAt}</span></div>
+                                <div className="flex items-center gap-1.5"><span className="text-slate-400">처리일</span><span>{record.completedAt}</span></div>
+                              </div>
+                              {record.completedBy && (
+                                <p className="mt-1.5 text-xs text-slate-400">처리자: {record.completedBy}</p>
+                              )}
                             </div>
                           </div>
                         </div>

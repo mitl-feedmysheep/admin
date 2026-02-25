@@ -40,9 +40,10 @@ interface SidebarProps {
   churchId?: string;
   churchName?: string;
   memberName?: string;
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ churchId, churchName, memberName }: SidebarProps) {
+export function Sidebar({ churchId, churchName, memberName, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -108,7 +109,7 @@ export function Sidebar({ churchId, churchName, memberName }: SidebarProps) {
   }, [switcherOpen]);
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 flex-col bg-slate-900 text-white">
+    <aside className="flex h-screen w-64 flex-col bg-slate-900 text-white md:sticky md:top-0">
       {/* Logo & Church */}
       <div className="border-b border-slate-800 px-6 py-4">
         <div className="flex items-center gap-2">
@@ -138,10 +139,11 @@ export function Sidebar({ churchId, churchName, memberName }: SidebarProps) {
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                side="right"
+                side="bottom"
                 align="start"
-                sideOffset={12}
-                className="w-80 border-slate-800 bg-slate-900 p-0 text-white shadow-xl"
+                sideOffset={8}
+                collisionPadding={16}
+                className="w-[calc(100vw-2rem)] sm:w-80 border-slate-800 bg-slate-900 p-0 text-white shadow-xl"
               >
                 <div className="border-b border-slate-800 px-4 py-3">
                   <p className="text-sm font-semibold">교회 전환</p>
@@ -239,6 +241,7 @@ export function Sidebar({ churchId, churchName, memberName }: SidebarProps) {
             <Link
               key={item.name}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive

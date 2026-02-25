@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +66,31 @@ export function EventManageClient() {
     title: "", date: "", description: "", startTime: "", endTime: "", location: "",
   });
   const [saving, setSaving] = useState(false);
+  const dialogHistoryPushed = useRef(false);
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (open) {
+      window.history.pushState({ eventDialog: true }, "");
+      dialogHistoryPushed.current = true;
+    } else {
+      if (dialogHistoryPushed.current) {
+        dialogHistoryPushed.current = false;
+        window.history.back();
+      }
+    }
+    setDialogOpen(open);
+  };
+
+  useEffect(() => {
+    const onPopState = (e: PopStateEvent) => {
+      if (dialogOpen) {
+        dialogHistoryPushed.current = false;
+        setDialogOpen(false);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [dialogOpen]);
 
   const fetchEvents = useCallback(async (year: number, month: number) => {
     setLoading(true);
@@ -109,7 +134,7 @@ export function EventManageClient() {
       });
 
       if (res.ok) {
-        setDialogOpen(false);
+        handleDialogOpenChange(false);
         setEditingId(null);
         setForm({ title: "", date: "", description: "", startTime: "", endTime: "", location: "" });
         fetchEvents(viewDate.year, viewDate.month);
@@ -151,13 +176,13 @@ export function EventManageClient() {
       endTime: ev.endTime || "",
       location: ev.location || "",
     });
-    setDialogOpen(true);
+    handleDialogOpenChange(true);
   };
 
   const openNew = () => {
     setEditingId(null);
     setForm({ title: "", date: "", description: "", startTime: "", endTime: "", location: "" });
-    setDialogOpen(true);
+    handleDialogOpenChange(true);
   };
 
   const prevMonth = () =>
@@ -171,6 +196,12 @@ export function EventManageClient() {
       const d = new Date(prev.year, prev.month, 1);
       return { year: d.getFullYear(), month: d.getMonth() + 1 };
     });
+
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const toggleExpand = (id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
 
   const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -224,56 +255,67 @@ export function EventManageClient() {
             <div className="space-y-2">
               {eventList.map((ev) => {
                 const d = new Date(ev.date + "T00:00:00");
+                const isExpanded = expandedId === ev.id;
                 return (
                   <div
                     key={ev.id}
-                    className="flex items-start gap-4 rounded-lg border p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                    className="rounded-lg border hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                   >
-                    <div className="flex flex-col items-center min-w-[56px]">
-                      <span className="text-2xl font-bold text-slate-800 dark:text-white">
-                        {d.getDate()}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {`${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`} ({WEEKDAYS[d.getDay()]})
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-slate-800 dark:text-white">{ev.title}</h4>
-                      {ev.description && (
-                        <p className="whitespace-pre-line text-sm text-slate-600 dark:text-slate-400 mt-0.5">
-                          {ev.description}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-slate-500">
-                        {(ev.startTime || ev.endTime) && (
-                          <span>🕐 {ev.startTime}{ev.endTime ? ` ~ ${ev.endTime}` : ""}</span>
+                    <div
+                      className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 cursor-pointer"
+                      onClick={() => toggleExpand(ev.id)}
+                    >
+                      <div className="flex flex-col items-center min-w-[44px] sm:min-w-[56px]">
+                        <span className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white">
+                          {d.getDate()}
+                        </span>
+                        <span className="text-[10px] sm:text-xs text-slate-500 text-center">
+                          ({WEEKDAYS[d.getDay()]})
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm sm:text-base text-slate-800 dark:text-white">{ev.title}</h4>
+                        <div className="flex flex-wrap gap-2 sm:gap-3 mt-1 text-xs text-slate-500">
+                          {(ev.startTime || ev.endTime) && (
+                            <span>🕐 {ev.startTime}{ev.endTime ? ` ~ ${ev.endTime}` : ""}</span>
+                          )}
+                          {ev.location && <span>📍 {ev.location}</span>}
+                        </div>
+                        {ev.description && !isExpanded && (
+                          <p className="mt-1 text-xs text-slate-400 truncate">{ev.description}</p>
                         )}
-                        {ev.location && <span>📍 {ev.location}</span>}
+                      </div>
+                      <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(ev)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() => {
+                            setDialogState({
+                              open: true,
+                              title: "이벤트 삭제",
+                              description: `"${ev.title}" 이벤트를 삭제하시겠습니까?`,
+                              mode: "confirm",
+                              variant: "danger",
+                              confirmText: "삭제",
+                              onConfirm: () => handleDelete(ev.id),
+                            });
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex gap-1 shrink-0">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(ev)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-500 hover:text-red-700"
-                        onClick={() => {
-                          setDialogState({
-                            open: true,
-                            title: "이벤트 삭제",
-                            description: `"${ev.title}" 이벤트를 삭제하시겠습니까?`,
-                            mode: "confirm",
-                            variant: "danger",
-                            confirmText: "삭제",
-                            onConfirm: () => handleDelete(ev.id),
-                          });
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {isExpanded && ev.description && (
+                      <div className="border-t px-3 sm:px-4 py-3 ml-[56px] sm:ml-[72px]">
+                        <p className="whitespace-pre-line text-sm text-slate-600 dark:text-slate-400 line-clamp-4">
+                          {ev.description}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -283,13 +325,13 @@ export function EventManageClient() {
       </Card>
 
       {/* Create/Edit dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
+      <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
+        <DialogContent className="sm:max-w-[480px] max-h-[85vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-0 shrink-0">
             <DialogTitle>{editingId ? "이벤트 수정" : "새 이벤트 추가"}</DialogTitle>
             <DialogDescription>교회 캘린더에 표시될 이벤트 정보를 입력하세요.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto px-6 py-4">
             <div className="space-y-2">
               <Label>제목 *</Label>
               <Input
@@ -341,11 +383,13 @@ export function EventManageClient() {
                 placeholder="이벤트 상세 내용"
                 maxLength={500}
                 rows={3}
+                className="!h-20 resize-none overflow-y-auto"
+                style={{ fieldSizing: "fixed" }}
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+          <DialogFooter className="px-6 pb-6 pt-0 shrink-0">
+            <Button variant="outline" onClick={() => handleDialogOpenChange(false)}>
               취소
             </Button>
             <Button onClick={handleSave} disabled={saving || !form.title.trim() || !form.date}>

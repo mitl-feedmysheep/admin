@@ -614,20 +614,20 @@ export function DashboardClient() {
                 해당 주차에 생성된 모임 목록
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              {/* 이전 버튼 */}
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={handlePrevWeek}
                 disabled={!canGoPrev}
                 title="이전 주차"
+                className="shrink-0"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               
               <Select value={selectedMonth} onValueChange={handleMonthChange}>
-                <SelectTrigger className="w-[100px]">
+                <SelectTrigger className="w-[80px] sm:w-[100px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -639,7 +639,7 @@ export function DashboardClient() {
                 </SelectContent>
               </Select>
               <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[130px] sm:w-[160px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -651,13 +651,13 @@ export function DashboardClient() {
                 </SelectContent>
               </Select>
               
-              {/* 다음 버튼 */}
               <Button
                 variant="outline"
                 size="icon"
                 onClick={handleNextWeek}
                 disabled={!canGoNext}
                 title="다음 주차"
+                className="shrink-0"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -667,6 +667,7 @@ export function DashboardClient() {
                 onClick={handleExcelDownload}
                 disabled={gatherings.length === 0}
                 title="엑셀 다운로드"
+                className="shrink-0"
               >
                 <Download className="h-4 w-4" />
               </Button>
@@ -788,11 +789,11 @@ export function DashboardClient() {
 
       {/* 소그룹 상세 Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-[500px] sm:w-[560px] sm:max-w-none p-0 flex flex-col">
+        <SheetContent className="w-full sm:w-[560px] sm:max-w-none p-0 flex flex-col">
           {/* 헤더 영역 */}
           <div className="bg-slate-100 dark:bg-slate-800 px-6 py-4 shrink-0 border-b border-slate-200 dark:border-slate-700">
             <SheetHeader>
-              <SheetTitle className="flex items-center justify-between">
+              <SheetTitle className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
                     <UsersRound className="h-4 w-4 text-slate-600 dark:text-slate-300" />
@@ -806,9 +807,8 @@ export function DashboardClient() {
                     </div>
                   </div>
                 </div>
-                {/* 출석 요약 */}
                 {gatheringDetail && (
-                  <div className="flex items-center gap-3 text-sm">
+                  <div className="flex items-center gap-3 text-sm ml-11 sm:ml-0">
                     <div className="flex items-center gap-1.5">
                       <Church className="h-3.5 w-3.5 text-blue-500" />
                       <span className="font-semibold text-slate-700 dark:text-slate-200">

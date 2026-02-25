@@ -122,4 +122,11 @@
   body {
     @apply bg-background text-foreground;
   }
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
 }
