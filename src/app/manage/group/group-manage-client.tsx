@@ -57,6 +57,10 @@ export function GroupManageClient() {
     description: "",
     startDate: "",
     endDate: "",
+    type: "NORMAL" as "NORMAL" | "NEWCOMER",
+    educationName: "",
+    educationDescription: "",
+    educationTotalWeeks: "",
   });
 
   // 소그룹 목록 상태
@@ -180,6 +184,14 @@ export function GroupManageClient() {
           description: groupForm.description || undefined,
           startDate: groupForm.startDate ? dateToApi(groupForm.startDate) : undefined,
           endDate: groupForm.endDate ? dateToApi(groupForm.endDate) : undefined,
+          type: groupForm.type,
+          ...(groupForm.type === "NEWCOMER" && groupForm.educationTotalWeeks ? {
+            educationProgram: {
+              name: groupForm.educationName || `${groupForm.name} 교육`,
+              description: groupForm.educationDescription || undefined,
+              totalWeeks: parseInt(groupForm.educationTotalWeeks),
+            },
+          } : {}),
         }),
       });
 
@@ -191,7 +203,7 @@ export function GroupManageClient() {
       }
 
       setGroupCreateMessage({ type: "success", text: `"${data.data.name}" 소그룹이 생성되었습니다.` });
-      setGroupForm({ name: "", description: "", startDate: "", endDate: "" });
+      setGroupForm({ name: "", description: "", startDate: "", endDate: "", type: "NORMAL", educationName: "", educationDescription: "", educationTotalWeeks: "" });
       fetchGroups(groupYearFilter);
     } catch {
       setGroupCreateMessage({ type: "error", text: "소그룹 생성 중 오류가 발생했습니다." });
@@ -353,9 +365,36 @@ export function GroupManageClient() {
                     </div>
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="groupType">소그룹 타입</Label>
+                    <Select value={groupForm.type} onValueChange={(v) => setGroupForm({ ...groupForm, type: v as "NORMAL" | "NEWCOMER" })}>
+                      <SelectTrigger id="groupType"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NORMAL">일반 소그룹</SelectItem>
+                        <SelectItem value="NEWCOMER">새가족부</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="groupDescription">설명</Label>
                     <Textarea id="groupDescription" value={groupForm.description} onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })} placeholder="소그룹에 대한 설명을 입력하세요" className="min-h-[80px]" />
                   </div>
+                  {groupForm.type === "NEWCOMER" && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20 space-y-3">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-300">교육 프로그램 설정</p>
+                      <div className="space-y-2">
+                        <Label htmlFor="educationName">교육 이름</Label>
+                        <Input id="educationName" value={groupForm.educationName} onChange={(e) => setGroupForm({ ...groupForm, educationName: e.target.value })} placeholder="예: 새가족 교육" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="educationDescription">교육 설명</Label>
+                        <Input id="educationDescription" value={groupForm.educationDescription} onChange={(e) => setGroupForm({ ...groupForm, educationDescription: e.target.value })} placeholder="예: 12주 과정 새가족 교육 프로그램" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="educationWeeks">총 주차 수 *</Label>
+                        <Input id="educationWeeks" type="number" min="1" value={groupForm.educationTotalWeeks} onChange={(e) => setGroupForm({ ...groupForm, educationTotalWeeks: e.target.value })} placeholder="예: 12" />
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-end">
                     <Button type="submit" className="gap-2 bg-slate-800 hover:bg-slate-700" disabled={isCreatingGroup || !groupForm.name.trim()}>
                       {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
