@@ -67,6 +67,7 @@ model church_member {
 model group {
   id          String    @id @db.Char(36)
   church_id   String    @db.Char(36)
+  type        String    @default("NORMAL") @db.VarChar(20)
   name        String    @db.VarChar(50)
   description String?   @db.VarChar(100)
   start_date  DateTime? @db.Date
@@ -75,9 +76,10 @@ model group {
   updated_at  DateTime? @default(now()) @updatedAt @db.DateTime(0)
   deleted_at  DateTime? @db.DateTime(0)
 
-  church        church         @relation(fields: [church_id], references: [id])
-  group_members group_member[]
-  gatherings    gathering[]
+  church              church              @relation(fields: [church_id], references: [id])
+  group_members       group_member[]
+  gatherings          gathering[]
+  education_programs  education_program[]
 
   @@index([church_id, deleted_at], map: "idx_group_church_deleted")
   @@map("group")
@@ -88,6 +90,7 @@ model group_member {
   group_id   String    @db.Char(36)
   member_id  String    @db.Char(36)
   role       String    @db.VarChar(20)
+  status     String    @default("ACTIVE") @db.VarChar(20)
   created_at DateTime  @default(now()) @db.DateTime(0)
   updated_at DateTime? @default(now()) @updatedAt @db.DateTime(0)
   deleted_at DateTime? @db.DateTime(0)
@@ -250,6 +253,37 @@ model event {
 
   @@index([entity_id, entity_type, date], map: "idx_event_entity_date")
   @@index([date], map: "idx_event_date")
+}
+
+/// 교육 프로그램
+model education_program {
+  id              String    @id @db.Char(36)
+  group_id        String    @db.Char(36)
+  name            String    @db.VarChar(100)
+  description     String?   @db.VarChar(500)
+  total_weeks     Int
+  graduated_count Int       @default(0)
+  created_at      DateTime  @default(now()) @db.DateTime(0)
+  updated_at      DateTime? @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at      DateTime? @db.DateTime(0)
+
+  group group @relation(fields: [group_id], references: [id])
+
+  @@unique([group_id])
+}
+
+/// 교육 진행 기록
+model education_progress {
+  id              String   @id @db.Char(36)
+  group_member_id String   @db.Char(36)
+  gathering_id    String   @db.Char(36)
+  week_number     Int
+  completed_date  DateTime @db.Date
+  created_at      DateTime @default(now()) @db.DateTime(0)
+  updated_at      DateTime? @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at      DateTime? @db.DateTime(0)
+
+  @@unique([group_member_id, week_number])
 }
 
 /// 교회 멤버 편입 요청

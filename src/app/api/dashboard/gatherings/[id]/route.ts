@@ -33,7 +33,7 @@ export async function GET(
             id: true,
             name: true,
             group_members: {
-              where: { deleted_at: null },
+              where: { deleted_at: null, status: "ACTIVE" },
               include: {
                 member: {
                   select: {
