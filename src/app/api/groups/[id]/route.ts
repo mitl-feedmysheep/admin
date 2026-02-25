@@ -30,7 +30,7 @@ export async function GET(
       },
       include: {
         group_members: {
-          where: { deleted_at: null },
+          where: { deleted_at: null, status: "ACTIVE" },
           include: {
             member: {
               select: {
@@ -130,12 +130,13 @@ export async function POST(
       );
     }
 
-    // 이미 해당 소그룹에 속한 멤버 확인
+    // 이미 해당 소그룹에 속한 활성 멤버 확인
     const existingMembers = await prisma.group_member.findMany({
       where: {
         group_id: groupId,
         member_id: { in: memberIds },
         deleted_at: null,
+        status: "ACTIVE",
       },
       select: { member_id: true },
     });

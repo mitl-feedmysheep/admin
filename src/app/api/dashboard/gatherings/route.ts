@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         group_members: {
-          where: { deleted_at: null },
+          where: { deleted_at: null, status: "ACTIVE" },
           select: { id: true },
         },
         gatherings: {

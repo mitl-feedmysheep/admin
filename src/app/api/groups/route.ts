@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         group_members: {
-          where: { deleted_at: null },
+          where: { deleted_at: null, status: "ACTIVE" },
           include: {
             member: {
               select: {
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, description, startDate, endDate } = body;
+    const { name, description, startDate, endDate, type, educationProgram } = body;
 
     // 필수 필드 검증
     if (!name || !name.trim()) {
@@ -118,6 +118,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const groupType = type === "NEWCOMER" ? "NEWCOMER" : "NORMAL";
 
     // 같은 교회에 동일 이름의 활성 소그룹이 있는지 확인
     const existing = await prisma.group.findFirst({
@@ -137,21 +139,33 @@ export async function POST(request: NextRequest) {
 
     const groupId = randomUUID();
 
-    // 트랜잭션: 소그룹 생성 + activity_log 기록
+    // 트랜잭션: 소그룹 생성 + 교육 프로그램(선택) + activity_log 기록
     await prisma.$transaction(async (tx) => {
-      // 소그룹 생성
       await tx.group.create({
         data: {
           id: groupId,
           church_id: session.churchId,
           name: name.trim(),
           description: description?.trim() || null,
+          type: groupType,
           start_date: startDate ? new Date(startDate) : null,
           end_date: endDate ? new Date(endDate) : null,
         },
       });
 
-      // activity_log 기록
+      if (groupType === "NEWCOMER" && educationProgram?.totalWeeks) {
+        await tx.education_program.create({
+          data: {
+            id: randomUUID(),
+            group_id: groupId,
+            name: educationProgram.name || `${name.trim()} 교육`,
+            description: educationProgram.description || null,
+            total_weeks: educationProgram.totalWeeks,
+            graduated_count: 0,
+          },
+        });
+      }
+
       await tx.activity_log.create({
         data: {
           id: randomUUID(),

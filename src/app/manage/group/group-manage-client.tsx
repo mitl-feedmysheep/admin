@@ -279,6 +279,9 @@ export function GroupManageClient() {
       setAssignMessage({ type: "success", text: msg });
       setSelectedMembers([]);
       fetchGroups(groupYearFilter);
+      if (removeGroupFilter) {
+        fetchGroupMembers(removeGroupFilter);
+      }
     } catch {
       setAssignMessage({ type: "error", text: "멤버 할당 중 오류가 발생했습니다." });
     } finally {
@@ -485,6 +488,20 @@ export function GroupManageClient() {
         {/* 멤버 할당 */}
         <TabsContent value="assign-member" className="mt-6">
           <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {groupYearFilter}년 소그룹 ({groups.length}개) 기준으로 표시됩니다.
+              </p>
+              <Select value={groupYearFilter} onValueChange={setGroupYearFilter}>
+                <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: new Date().getFullYear() - 2025 + 1 }, (_, i) => {
+                    const y = String(new Date().getFullYear() - i);
+                    return <SelectItem key={y} value={y}>{y}년</SelectItem>;
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
             <Card className="border-slate-200 dark:border-slate-800">
               <CardHeader>
                 <CardTitle className="text-slate-900 dark:text-white flex items-center gap-2">

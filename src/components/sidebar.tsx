@@ -12,7 +12,8 @@ import {
   RefreshCcw,
   Loader2,
   Check,
-  CalendarDays
+  CalendarDays,
+  GraduationCap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -25,6 +26,7 @@ const navigation: ({ type: "link"; name: string; href: string; icon: typeof Layo
   { type: "divider" },
   { type: "link", name: "교회 관리", href: "/manage/church", icon: Church },
   { type: "link", name: "소그룹 관리", href: "/manage/group", icon: UsersRound },
+  { type: "link", name: "새가족 관리", href: "/manage/newcomer", icon: GraduationCap },
   { type: "link", name: "이벤트 관리", href: "/manage/event", icon: CalendarDays },
 ];
 
