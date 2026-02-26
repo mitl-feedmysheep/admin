@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { rolesAtOrAbove } from "@/lib/roles";
 
 export async function GET() {
   const session = await getSession();
@@ -12,7 +13,7 @@ export async function GET() {
   const adminChurches = await prisma.church_member.findMany({
     where: {
       member_id: session.memberId,
-      role: "ADMIN",
+      role: { in: rolesAtOrAbove("ADMIN") },
       deleted_at: null,
     },
     include: { church: true },

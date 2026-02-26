@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { rolesAtOrAbove } from "@/lib/roles";
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     const adminChurches = await prisma.church_member.findMany({
       where: {
         member_id: member.id,
-        role: "ADMIN",
+        role: { in: rolesAtOrAbove("ADMIN") },
         deleted_at: null,
       },
       include: {

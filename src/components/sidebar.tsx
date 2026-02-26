@@ -13,8 +13,11 @@ import {
   Loader2,
   Check,
   CalendarDays,
-  GraduationCap
+  GraduationCap,
+  Home,
+  BookOpen,
 } from "lucide-react";
+import { hasPermissionOver } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEffect, useState } from "react";
@@ -30,6 +33,14 @@ const navigation: ({ type: "link"; name: string; href: string; icon: typeof Layo
   { type: "link", name: "이벤트 관리", href: "/manage/event", icon: CalendarDays },
 ];
 
+type NavItem = { type: "link"; name: string; href: string; icon: typeof LayoutDashboard } | { type: "divider" };
+
+const superAdminNavigation: NavItem[] = [
+  { type: "divider" },
+  { type: "link", name: "심방 관리", href: "/manage/visit", icon: Home },
+  { type: "link", name: "기도제목 관리", href: "/manage/prayer", icon: BookOpen },
+];
+
 interface AdminChurch {
   churchId: string;
   churchName: string;
@@ -40,10 +51,11 @@ interface SidebarProps {
   churchId?: string;
   churchName?: string;
   memberName?: string;
+  role?: string;
   onNavigate?: () => void;
 }
 
-export function Sidebar({ churchId, churchName, memberName, onNavigate }: SidebarProps) {
+export function Sidebar({ churchId, churchName, memberName, role, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -232,7 +244,7 @@ export function Sidebar({ churchId, churchName, memberName, onNavigate }: Sideba
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navigation.map((item, index) => {
+        {[...navigation, ...(role && hasPermissionOver(role, "SUPER_ADMIN") ? superAdminNavigation : [])].map((item, index) => {
           if (item.type === "divider") {
             return <div key={`divider-${index}`} className="my-2 border-t border-slate-700/50" />;
           }

@@ -37,10 +37,7 @@ export async function GET(request: NextRequest) {
         ...yearFilter,
       },
       include: {
-        education_programs: {
-          where: { deleted_at: null },
-          take: 1,
-        },
+        education_programs: true,
         group_members: {
           where: { deleted_at: null },
           include: {
@@ -62,9 +59,9 @@ export async function GET(request: NextRequest) {
 
     const data = await Promise.all(
       groups.map(async (group) => {
-        const program = group.education_programs[0] || null;
+        const program = group.education_programs ?? null;
 
-        const memberGroupMemberIds = group.group_members.map((gm) => gm.id);
+        const memberGroupMemberIds = group.group_members.map((gm: { id: string }) => gm.id);
         const progressRecords =
           memberGroupMemberIds.length > 0
             ? await prisma.education_progress.findMany({
@@ -86,7 +83,7 @@ export async function GET(request: NextRequest) {
           progressByMember.set(p.group_member_id, weeks);
         }
 
-        const members = group.group_members.map((gm) => ({
+        const members = group.group_members.map((gm: { id: string; member: { id: string; name: string; phone: string; birthday: Date | null; sex: string }; role: string; status: string }) => ({
           groupMemberId: gm.id,
           memberId: gm.member.id,
           name: gm.member.name,
@@ -100,8 +97,8 @@ export async function GET(request: NextRequest) {
           ),
         }));
 
-        const allNewcomers = members.filter((m) => m.role === "MEMBER");
-        const activeMembers = allNewcomers.filter((m) => m.status === "ACTIVE");
+        const allNewcomers = members.filter((m: { role: string }) => m.role === "MEMBER");
+        const activeMembers = allNewcomers.filter((m: { status: string }) => m.status === "ACTIVE");
 
         return {
           id: group.id,

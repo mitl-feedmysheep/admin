@@ -113,6 +113,7 @@ export async function GET(request: NextRequest) {
       
       return {
         id: cm.member.id,
+        churchMemberId: cm.id,
         name: cm.member.name,
         email: cm.member.email || "",
         phone: cm.member.phone || "",

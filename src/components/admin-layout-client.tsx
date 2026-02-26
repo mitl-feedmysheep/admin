@@ -12,6 +12,7 @@ interface AdminLayoutClientProps {
   churchId?: string;
   churchName?: string;
   memberName?: string;
+  role?: string;
 }
 
 export function AdminLayoutClient({
@@ -19,6 +20,7 @@ export function AdminLayoutClient({
   churchId,
   churchName,
   memberName,
+  role,
 }: AdminLayoutClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
@@ -35,6 +37,7 @@ export function AdminLayoutClient({
           churchId={churchId}
           churchName={churchName}
           memberName={memberName}
+          role={role}
         />
       </div>
 
@@ -51,6 +54,7 @@ export function AdminLayoutClient({
             churchId={churchId}
             churchName={churchName}
             memberName={memberName}
+            role={role}
             onNavigate={handleNavigate}
           />
         </SheetContent>

@@ -13,6 +13,7 @@ export async function AdminLayout({ children }: AdminLayoutProps) {
       churchId={session?.churchId}
       churchName={session?.churchName}
       memberName={session?.memberName}
+      role={session?.role}
     >
       {children}
     </AdminLayoutClient>

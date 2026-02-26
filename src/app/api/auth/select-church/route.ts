@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createToken, setSessionCookie, verifyToken } from "@/lib/auth";
+import { rolesAtOrAbove } from "@/lib/roles";
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
       where: {
         member_id: memberId,
         church_id: churchId,
-        role: "ADMIN",
+        role: { in: rolesAtOrAbove("ADMIN") },
         deleted_at: null,
       },
       include: {
