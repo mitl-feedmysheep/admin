@@ -7,6 +7,7 @@ interface AdminLayoutProps {
 
 export async function AdminLayout({ children }: AdminLayoutProps) {
   const session = await getSession();
+  const isSystemAdmin = session?.memberId === process.env.SYSTEM_ADMIN_MEMBER_ID;
 
   return (
     <AdminLayoutClient
@@ -14,6 +15,7 @@ export async function AdminLayout({ children }: AdminLayoutProps) {
       churchName={session?.churchName}
       memberName={session?.memberName}
       role={session?.role}
+      isSystemAdmin={isSystemAdmin}
     >
       {children}
     </AdminLayoutClient>

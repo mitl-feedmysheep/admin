@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { 
-  LayoutDashboard, 
-  Users, 
+import {
+  LayoutDashboard,
+  Users,
   UsersRound,
   LogOut,
   Church,
@@ -16,6 +16,7 @@ import {
   GraduationCap,
   Home,
   BookOpen,
+  Settings,
 } from "lucide-react";
 import { hasPermissionOver } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ const navigation: ({ type: "link"; name: string; href: string; icon: typeof Layo
   { type: "divider" },
   { type: "link", name: "교회 관리", href: "/manage/church", icon: Church },
   { type: "link", name: "소그룹 관리", href: "/manage/group", icon: UsersRound },
+  { type: "link", name: "멤버 관리", href: "/system/member", icon: Users },
   { type: "link", name: "새가족 관리", href: "/manage/newcomer", icon: GraduationCap },
   { type: "link", name: "이벤트 관리", href: "/manage/event", icon: CalendarDays },
 ];
@@ -52,10 +54,11 @@ interface SidebarProps {
   churchName?: string;
   memberName?: string;
   role?: string;
+  isSystemAdmin?: boolean;
   onNavigate?: () => void;
 }
 
-export function Sidebar({ churchId, churchName, memberName, role, onNavigate }: SidebarProps) {
+export function Sidebar({ churchId, churchName, memberName, role, isSystemAdmin, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -267,6 +270,25 @@ export function Sidebar({ churchId, churchName, memberName, role, onNavigate }: 
           );
         })}
       </nav>
+
+      {/* System Admin Menu */}
+      {isSystemAdmin && (
+        <div className="border-t border-slate-800 px-3 py-2">
+          <Link
+            href="/system/church"
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              pathname.startsWith("/system/church")
+                ? "bg-indigo-600 text-white"
+                : "text-slate-300 hover:bg-slate-800 hover:text-white"
+            )}
+          >
+            <Settings className="h-5 w-5" />
+            교회 관리
+          </Link>
+        </div>
+      )}
 
       {/* User & Logout */}
       <div className="border-t border-slate-800 p-4">

@@ -13,6 +13,7 @@ interface AdminLayoutClientProps {
   churchName?: string;
   memberName?: string;
   role?: string;
+  isSystemAdmin?: boolean;
 }
 
 export function AdminLayoutClient({
@@ -21,6 +22,7 @@ export function AdminLayoutClient({
   churchName,
   memberName,
   role,
+  isSystemAdmin,
 }: AdminLayoutClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
@@ -38,6 +40,7 @@ export function AdminLayoutClient({
           churchName={churchName}
           memberName={memberName}
           role={role}
+          isSystemAdmin={isSystemAdmin}
         />
       </div>
 
@@ -55,6 +58,7 @@ export function AdminLayoutClient({
             churchName={churchName}
             memberName={memberName}
             role={role}
+            isSystemAdmin={isSystemAdmin}
             onNavigate={handleNavigate}
           />
         </SheetContent>
