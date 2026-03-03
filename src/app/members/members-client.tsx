@@ -203,7 +203,14 @@ export function MembersClient() {
 
                   {/* 연락처 + 주소 */}
                   <div className="space-y-1.5 border-t border-slate-100 pt-2.5 dark:border-slate-800">
-                    <InfoItem icon={Phone} value={formatPhone(member.phone)} />
+                    {member.phone ? (
+                      <a href={`tel:${member.phone}`} className="flex items-center gap-1.5 min-w-0 text-indigo-600 hover:underline dark:text-indigo-400">
+                        <Phone className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{formatPhone(member.phone)}</span>
+                      </a>
+                    ) : (
+                      <InfoItem icon={Phone} value="-" />
+                    )}
                     <InfoItem icon={Mail} value={member.email} />
                     {member.address && (
                       <div className="flex items-start gap-1.5 min-w-0">

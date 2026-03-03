@@ -27,7 +27,8 @@ interface EventItem {
   id: string;
   title: string;
   description?: string;
-  date: string;
+  startDate: string;
+  endDate: string;
   startTime?: string;
   endTime?: string;
   location?: string;
@@ -63,7 +64,7 @@ export function EventManageClient() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
-    title: "", date: "", description: "", startTime: "", endTime: "", location: "",
+    title: "", startDate: "", endDate: "", description: "", startTime: "", endTime: "", location: "",
   });
   const [saving, setSaving] = useState(false);
   const dialogHistoryPushed = useRef(false);
@@ -112,12 +113,13 @@ export function EventManageClient() {
   }, [viewDate, fetchEvents]);
 
   const handleSave = async () => {
-    if (!form.title.trim() || !form.date) return;
+    if (!form.title.trim() || !form.startDate) return;
     setSaving(true);
     try {
       const payload = {
         title: form.title,
-        date: form.date,
+        startDate: form.startDate,
+        endDate: form.endDate || form.startDate,
         description: form.description || undefined,
         startTime: form.startTime || undefined,
         endTime: form.endTime || undefined,
@@ -136,7 +138,7 @@ export function EventManageClient() {
       if (res.ok) {
         handleDialogOpenChange(false);
         setEditingId(null);
-        setForm({ title: "", date: "", description: "", startTime: "", endTime: "", location: "" });
+        setForm({ title: "", startDate: "", endDate: "", description: "", startTime: "", endTime: "", location: "" });
         fetchEvents(viewDate.year, viewDate.month);
         showAlert(
           editingId ? "이벤트 수정 완료" : "이벤트 생성 완료",
@@ -170,7 +172,8 @@ export function EventManageClient() {
     setEditingId(ev.id);
     setForm({
       title: ev.title,
-      date: ev.date,
+      startDate: ev.startDate,
+      endDate: ev.endDate,
       description: ev.description || "",
       startTime: ev.startTime || "",
       endTime: ev.endTime || "",
@@ -181,7 +184,7 @@ export function EventManageClient() {
 
   const openNew = () => {
     setEditingId(null);
-    setForm({ title: "", date: "", description: "", startTime: "", endTime: "", location: "" });
+    setForm({ title: "", startDate: "", endDate: "", description: "", startTime: "", endTime: "", location: "" });
     handleDialogOpenChange(true);
   };
 
@@ -254,7 +257,9 @@ export function EventManageClient() {
           ) : (
             <div className="space-y-2">
               {eventList.map((ev) => {
-                const d = new Date(ev.date + "T00:00:00");
+                const sd = new Date(ev.startDate + "T00:00:00");
+                const ed = new Date(ev.endDate + "T00:00:00");
+                const isMultiDay = ev.startDate !== ev.endDate;
                 const isExpanded = expandedId === ev.id;
                 return (
                   <div
@@ -267,10 +272,10 @@ export function EventManageClient() {
                     >
                       <div className="flex flex-col items-center min-w-[44px] sm:min-w-[56px]">
                         <span className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white">
-                          {d.getDate()}
+                          {sd.getDate()}{isMultiDay ? `~${ed.getDate()}` : ""}
                         </span>
                         <span className="text-[10px] sm:text-xs text-slate-500 text-center">
-                          ({WEEKDAYS[d.getDay()]})
+                          ({WEEKDAYS[sd.getDay()]}{isMultiDay ? `~${WEEKDAYS[ed.getDay()]}` : ""})
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -341,14 +346,26 @@ export function EventManageClient() {
                 maxLength={100}
               />
             </div>
-            <div className="space-y-2">
-              <Label>날짜 *</Label>
-              <Input
-                type="date"
-                lang="ko"
-                value={form.date}
-                onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>시작 날짜 *</Label>
+                <Input
+                  type="date"
+                  lang="ko"
+                  value={form.startDate}
+                  onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>종료 날짜</Label>
+                <Input
+                  type="date"
+                  lang="ko"
+                  value={form.endDate}
+                  min={form.startDate}
+                  onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -392,7 +409,7 @@ export function EventManageClient() {
             <Button variant="outline" onClick={() => handleDialogOpenChange(false)}>
               취소
             </Button>
-            <Button onClick={handleSave} disabled={saving || !form.title.trim() || !form.date}>
+            <Button onClick={handleSave} disabled={saving || !form.title.trim() || !form.startDate}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingId ? "수정" : "추가"}
             </Button>

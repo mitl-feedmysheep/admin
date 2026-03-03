@@ -156,6 +156,16 @@ export async function PATCH(
     const body = await request.json();
     const { adminComment } = body;
 
+    // 기존 모임 조회 (adminComment 변경 여부 판단용)
+    const existing = await prisma.gathering.findUnique({
+      where: { id: gatheringId, deleted_at: null },
+      select: { admin_comment: true, group_id: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
+    }
+
     // 모임 업데이트
     const updated = await prisma.gathering.update({
       where: {
@@ -167,6 +177,57 @@ export async function PATCH(
         updated_at: new Date(),
       },
     });
+
+    // adminComment가 실제로 변경된 경우 LEADER에게 알림 생성
+    const commentChanged =
+      adminComment != null &&
+      adminComment.trim() !== "" &&
+      adminComment !== (existing.admin_comment || "");
+
+    if (commentChanged) {
+      const leaders = await prisma.group_member.findMany({
+        where: {
+          group_id: existing.group_id,
+          role: "LEADER",
+          status: "ACTIVE",
+          deleted_at: null,
+        },
+        select: { member_id: true },
+      });
+
+      const now = new Date();
+      for (const leader of leaders) {
+        // 중복 체크: 같은 소모임에 미읽음 알림이 이미 있으면 스킵
+        const alreadyExists = await prisma.notification.findFirst({
+          where: {
+            receiver_id: leader.member_id,
+            type: "ADMIN_COMMENT",
+            entity_type: "GATHERING",
+            entity_id: gatheringId,
+            is_read: 0,
+            deleted_at: null,
+          },
+        });
+
+        if (!alreadyExists) {
+          const targetUrl = `/groups/${existing.group_id}/gathering/${gatheringId}`;
+          await prisma.notification.create({
+            data: {
+              id: crypto.randomUUID(),
+              receiver_id: leader.member_id,
+              sender_id: session.memberId,
+              type: "ADMIN_COMMENT",
+              entity_type: "GATHERING",
+              entity_id: gatheringId,
+              target_url: targetUrl,
+              is_read: 0,
+              created_at: now,
+              updated_at: now,
+            },
+          });
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,

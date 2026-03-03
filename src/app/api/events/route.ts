@@ -30,16 +30,18 @@ export async function GET(request: NextRequest) {
         entity_id: session.churchId,
         entity_type: "CHURCH",
         deleted_at: null,
-        date: { gte: startDate, lte: endDate },
+        start_date: { lte: endDate },
+        end_date: { gte: startDate },
       },
-      orderBy: [{ date: "asc" }, { start_time: "asc" }],
+      orderBy: [{ start_date: "asc" }, { start_time: "asc" }],
     });
 
     const data = events.map((e) => ({
       id: e.id,
       title: e.title,
       description: e.description,
-      date: e.date.toISOString().split("T")[0],
+      startDate: e.start_date.toISOString().split("T")[0],
+      endDate: e.end_date.toISOString().split("T")[0],
       startTime: e.start_time ? formatTime(e.start_time) : null,
       endTime: e.end_time ? formatTime(e.end_time) : null,
       location: e.location,
@@ -55,7 +57,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/events
  * 새 이벤트 생성
- * Body: { title, date, description?, startTime?, endTime?, location? }
+ * Body: { title, startDate, endDate, description?, startTime?, endTime?, location? }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -65,12 +67,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, date, description, startTime, endTime, location } = body;
+    const { title, startDate: startDateStr, endDate: endDateStr, description, startTime, endTime, location } = body;
 
     if (!title?.trim()) {
       return NextResponse.json({ error: "제목을 입력해주세요." }, { status: 400 });
     }
-    if (!date) {
+    if (!startDateStr || !endDateStr) {
       return NextResponse.json({ error: "날짜를 선택해주세요." }, { status: 400 });
     }
 
@@ -84,7 +86,8 @@ export async function POST(request: NextRequest) {
           entity_type: "CHURCH",
           title: title.trim(),
           description: description?.trim() || null,
-          date: new Date(date),
+          start_date: new Date(startDateStr),
+          end_date: new Date(endDateStr),
           start_time: startTime ? parseTime(startTime) : null,
           end_time: endTime ? parseTime(endTime) : null,
           location: location?.trim() || null,

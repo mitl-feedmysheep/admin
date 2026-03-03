@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 /**
  * PATCH /api/events/[id]
  * 이벤트 수정
- * Body: { title?, date?, description?, startTime?, endTime?, location? }
+ * Body: { title?, startDate?, endDate?, description?, startTime?, endTime?, location? }
  */
 export async function PATCH(
   request: NextRequest,
@@ -20,7 +20,7 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { title, date, description, startTime, endTime, location } = body;
+    const { title, startDate, endDate, description, startTime, endTime, location } = body;
 
     const existing = await prisma.event.findFirst({
       where: { id, entity_id: session.churchId, deleted_at: null },
@@ -35,7 +35,8 @@ export async function PATCH(
         where: { id },
         data: {
           ...(title !== undefined && { title: title.trim() }),
-          ...(date !== undefined && { date: new Date(date) }),
+          ...(startDate !== undefined && { start_date: new Date(startDate) }),
+          ...(endDate !== undefined && { end_date: new Date(endDate) }),
           ...(description !== undefined && { description: description?.trim() || null }),
           ...(startTime !== undefined && { start_time: startTime ? parseTime(startTime) : null }),
           ...(endTime !== undefined && { end_time: endTime ? parseTime(endTime) : null }),
