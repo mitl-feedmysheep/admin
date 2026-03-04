@@ -267,12 +267,24 @@ export function EventManageClient() {
                     className="rounded-lg border hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                   >
                     <div
-                      className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 cursor-pointer"
+                      className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 cursor-pointer"
                       onClick={() => toggleExpand(ev.id)}
                     >
-                      <div className="flex flex-col items-center min-w-[44px] sm:min-w-[56px]">
-                        <span className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white">
-                          {sd.getDate()}{isMultiDay ? `~${ed.getDate()}` : ""}
+                      <div className="flex flex-col items-center w-[52px] shrink-0">
+                        <span className={`font-bold text-slate-800 dark:text-white ${isMultiDay ? "text-sm sm:text-lg" : "text-base sm:text-lg"}`}>
+                          {isMultiDay ? (
+                            <span className="hidden sm:grid grid-cols-[1fr_auto_1fr] text-center">
+                              <span className="text-[9px] font-normal text-slate-400 leading-tight">{sd.getMonth() + 1}</span>
+                              <span />
+                              <span className="text-[9px] font-normal text-slate-400 leading-tight">{ed.getMonth() + 1}</span>
+                              <span>{sd.getDate()}</span>
+                              <span>~</span>
+                              <span>{ed.getDate()}</span>
+                            </span>
+                          ) : null}
+                          {isMultiDay ? (
+                            <span className="sm:hidden">{sd.getDate()}~{ed.getDate()}</span>
+                          ) : sd.getDate()}
                         </span>
                         <span className="text-[10px] sm:text-xs text-slate-500 text-center">
                           ({WEEKDAYS[sd.getDay()]}{isMultiDay ? `~${WEEKDAYS[ed.getDay()]}` : ""})
@@ -346,12 +358,13 @@ export function EventManageClient() {
                 maxLength={100}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-4">
               <div className="space-y-2">
                 <Label>시작 날짜 *</Label>
                 <Input
                   type="date"
                   lang="ko"
+                  className="px-1 sm:px-3 text-sm h-7 sm:h-10 text-center sm:text-left"
                   value={form.startDate}
                   onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
                 />
@@ -361,6 +374,7 @@ export function EventManageClient() {
                 <Input
                   type="date"
                   lang="ko"
+                  className="px-1 sm:px-3 text-sm h-7 sm:h-10 text-center sm:text-left"
                   value={form.endDate}
                   min={form.startDate}
                   onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
