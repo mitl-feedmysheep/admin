@@ -195,38 +195,49 @@ export async function PATCH(
         select: { member_id: true },
       });
 
+      console.log("[Notification] commentChanged=true, leaders found:", leaders.length, "senderId:", session.memberId);
+
       const now = new Date();
       for (const leader of leaders) {
-        // 중복 체크: 같은 소모임에 미읽음 알림이 이미 있으면 스킵
-        const alreadyExists = await prisma.notification.findFirst({
-          where: {
-            receiver_id: leader.member_id,
-            type: "ADMIN_COMMENT",
-            entity_type: "GATHERING",
-            entity_id: gatheringId,
-            is_read: 0,
-            deleted_at: null,
-          },
-        });
-
-        if (!alreadyExists) {
-          const targetUrl = `/groups/${existing.group_id}/gathering/${gatheringId}`;
-          await prisma.notification.create({
-            data: {
-              id: crypto.randomUUID(),
+        try {
+          // 중복 체크: 같은 소모임에 미읽음 알림이 이미 있으면 스킵
+          const alreadyExists = await prisma.notification.findFirst({
+            where: {
               receiver_id: leader.member_id,
-              sender_id: session.memberId,
               type: "ADMIN_COMMENT",
               entity_type: "GATHERING",
               entity_id: gatheringId,
-              target_url: targetUrl,
               is_read: 0,
-              created_at: now,
-              updated_at: now,
+              deleted_at: null,
             },
           });
+
+          console.log("[Notification] leader:", leader.member_id, "alreadyExists:", !!alreadyExists);
+
+          if (!alreadyExists) {
+            const targetUrl = `/groups/${existing.group_id}/gathering/${gatheringId}`;
+            await prisma.notification.create({
+              data: {
+                id: crypto.randomUUID(),
+                receiver_id: leader.member_id,
+                sender_id: session.memberId,
+                type: "ADMIN_COMMENT",
+                entity_type: "GATHERING",
+                entity_id: gatheringId,
+                target_url: targetUrl,
+                is_read: 0,
+                created_at: now,
+                updated_at: now,
+              },
+            });
+            console.log("[Notification] created for leader:", leader.member_id);
+          }
+        } catch (notifError) {
+          console.error("[Notification] Failed for leader:", leader.member_id, notifError);
         }
       }
+    } else {
+      console.log("[Notification] commentChanged=false, skipping notification");
     }
 
     return NextResponse.json({

@@ -108,7 +108,7 @@ export function Sidebar({ churchId, churchName, memberName, role, isSystemAdmin,
       }
 
       setSwitcherOpen(false);
-      router.refresh();
+      window.location.href = "/dashboard";
     } catch {
       setSwitchError("교회 전환에 실패했습니다.");
     } finally {

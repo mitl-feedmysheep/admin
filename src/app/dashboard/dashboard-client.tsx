@@ -867,9 +867,9 @@ export function DashboardClient() {
                     )}
                     <Button 
                       size="sm" 
-                      className={commentSaved 
-                        ? "bg-emerald-600 hover:bg-emerald-700" 
-                        : "bg-slate-800 hover:bg-slate-700"
+                      className={commentSaved
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
                       }
                       onClick={saveAdminComment}
                       disabled={savingComment}
