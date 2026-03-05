@@ -84,6 +84,11 @@ export function GroupManageClient() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignMessage, setAssignMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // 소모임 선택 상태
+  const [groupGatherings, setGroupGatherings] = useState<{ id: string; name: string; date: string }[]>([]);
+  const [gatheringsLoading, setGatheringsLoading] = useState(false);
+  const [selectedGatheringIds, setSelectedGatheringIds] = useState<string[]>([]);
+
   // 멤버 제외용 상태
   const [removeGroupFilter, setRemoveGroupFilter] = useState("");
   const [membersInSelectedGroup, setMembersInSelectedGroup] = useState<
@@ -116,6 +121,43 @@ export function GroupManageClient() {
 
     return () => clearTimeout(timer);
   }, [memberSearchQuery]);
+
+  // 소그룹의 소모임 목록 불러오기
+  const fetchGroupGatherings = useCallback(async (groupId: string) => {
+    if (!groupId) {
+      setGroupGatherings([]);
+      setSelectedGatheringIds([]);
+      return;
+    }
+    setGatheringsLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${groupId}/gatherings`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const gatherings = data.data.gatherings;
+        setGroupGatherings(gatherings);
+        // 가장 최근 소모임 기본 선택
+        if (gatherings.length > 0) {
+          setSelectedGatheringIds([gatherings[0].id]);
+        } else {
+          setSelectedGatheringIds([]);
+        }
+      } else {
+        setGroupGatherings([]);
+        setSelectedGatheringIds([]);
+      }
+    } catch {
+      console.error("소모임 목록 불러오기 실패");
+      setGroupGatherings([]);
+      setSelectedGatheringIds([]);
+    } finally {
+      setGatheringsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGroupGatherings(selectedGroup);
+  }, [selectedGroup, fetchGroupGatherings]);
 
   // 소그룹 멤버 목록 불러오기
   const fetchGroupMembers = useCallback(async (groupId: string) => {
@@ -263,6 +305,7 @@ export function GroupManageClient() {
         body: JSON.stringify({
           memberIds: selectedMembers.map((m) => m.id),
           role: selectedRole,
+          gatheringIds: selectedGatheringIds.length > 0 ? selectedGatheringIds : undefined,
         }),
       });
 
@@ -278,6 +321,7 @@ export function GroupManageClient() {
         : `${data.data.assignedCount}명 할당 완료`;
       setAssignMessage({ type: "success", text: msg });
       setSelectedMembers([]);
+      setSelectedGatheringIds([]);
       fetchGroups(groupYearFilter);
       if (removeGroupFilter) {
         fetchGroupMembers(removeGroupFilter);
@@ -587,6 +631,50 @@ export function GroupManageClient() {
                       </Button>
                     </div>
                   </div>
+
+                  {selectedGroup && (
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          소모임에도 추가
+                        </Label>
+                        {gatheringsLoading && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+                      </div>
+                      {!gatheringsLoading && groupGatherings.length === 0 ? (
+                        <p className="text-sm text-slate-400">해당 소그룹에 소모임이 없습니다.</p>
+                      ) : (
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {groupGatherings.map((gathering, index) => (
+                            <div key={gathering.id} className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                id={`gathering-${gathering.id}`}
+                                checked={selectedGatheringIds.includes(gathering.id)}
+                                onChange={(e) => {
+                                  setSelectedGatheringIds((prev) =>
+                                    e.target.checked
+                                      ? [...prev, gathering.id]
+                                      : prev.filter((id) => id !== gathering.id)
+                                  );
+                                }}
+                                className="h-4 w-4 rounded border-slate-300 text-slate-800 accent-slate-800 cursor-pointer"
+                              />
+                              <label
+                                htmlFor={`gathering-${gathering.id}`}
+                                className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer select-none"
+                              >
+                                <span>{gathering.name}</span>
+                                <span className="text-xs text-slate-400">{gathering.date.replaceAll("-", "/")}</span>
+                                {index === 0 && (
+                                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">최신</span>
+                                )}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {assignMessage && (
                     <div className={`rounded-lg px-4 py-3 text-sm ${assignMessage.type === "success" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"}`}>

@@ -97,7 +97,11 @@ export async function POST(
 
     const { id: groupId } = await params;
     const body = await request.json();
-    const { memberIds, role } = body as { memberIds: string[]; role: string };
+    const { memberIds, role, gatheringIds } = body as {
+      memberIds: string[];
+      role: string;
+      gatheringIds?: string[];
+    };
 
     if (!memberIds || memberIds.length === 0) {
       return NextResponse.json(
@@ -151,27 +155,58 @@ export async function POST(
       );
     }
 
-    // 트랜잭션: group_member 생성 + activity_log 기록
+    // 새 그룹멤버 ID를 미리 생성 (gathering_member 연결을 위해)
+    const newGroupMemberData = newMemberIds.map((memberId) => ({
+      id: randomUUID(),
+      group_id: groupId,
+      member_id: memberId,
+      role,
+    }));
+
+    // 소모임 검증 (gatheringIds가 있을 때만)
+    let validGatheringIds: string[] = [];
+    if (gatheringIds && gatheringIds.length > 0) {
+      const existingGatherings = await prisma.gathering.findMany({
+        where: {
+          id: { in: gatheringIds },
+          group_id: groupId,
+          deleted_at: null,
+        },
+        select: { id: true },
+      });
+      validGatheringIds = existingGatherings.map((g) => g.id);
+    }
+
+    // 트랜잭션: group_member 생성 + gathering_member 생성 + activity_log 기록
     await prisma.$transaction(async (tx) => {
       // group_member 일괄 생성
       await tx.group_member.createMany({
-        data: newMemberIds.map((memberId) => ({
-          id: randomUUID(),
-          group_id: groupId,
-          member_id: memberId,
-          role,
-        })),
+        data: newGroupMemberData,
       });
+
+      // 선택된 소모임에 gathering_member 생성
+      if (validGatheringIds.length > 0) {
+        const gatheringMemberData = validGatheringIds.flatMap((gatheringId) =>
+          newGroupMemberData.map((gm) => ({
+            id: randomUUID(),
+            gathering_id: gatheringId,
+            group_member_id: gm.id,
+          }))
+        );
+        await tx.gathering_member.createMany({
+          data: gatheringMemberData,
+        });
+      }
 
       // activity_log 기록 (멤버별)
       await tx.activity_log.createMany({
-        data: newMemberIds.map((memberId) => ({
+        data: newGroupMemberData.map((gm) => ({
           id: randomUUID(),
           church_id: session.churchId,
           actor_id: session.memberId,
           action_type: "CREATE",
           entity_type: "GROUP_MEMBER",
-          entity_id: memberId,
+          entity_id: gm.member_id,
         })),
       });
     });

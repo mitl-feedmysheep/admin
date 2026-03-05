@@ -19,7 +19,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { groupId, groupMemberId, targetGroupId } = body;
+    const { groupId, groupMemberId, targetGroupId, gatheringIds } = body as {
+      groupId: string;
+      groupMemberId: string;
+      targetGroupId: string;
+      gatheringIds?: string[];
+    };
 
     if (!groupId || !groupMemberId || !targetGroupId) {
       return NextResponse.json(
@@ -92,6 +97,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 소모임 검증 (gatheringIds가 있을 때만)
+    let validGatheringIds: string[] = [];
+    if (gatheringIds && gatheringIds.length > 0) {
+      const existingGatherings = await prisma.gathering.findMany({
+        where: {
+          id: { in: gatheringIds },
+          group_id: targetGroupId,
+          deleted_at: null,
+        },
+        select: { id: true },
+      });
+      validGatheringIds = existingGatherings.map((g) => g.id);
+    }
+
+    const newGroupMemberId = randomUUID();
+
     await prisma.$transaction(async (tx) => {
       await tx.group_member.update({
         where: { id: groupMemberId },
@@ -100,13 +121,24 @@ export async function POST(request: NextRequest) {
 
       await tx.group_member.create({
         data: {
-          id: randomUUID(),
+          id: newGroupMemberId,
           group_id: targetGroupId,
           member_id: groupMember.member.id,
           role: "MEMBER",
           status: "ACTIVE",
         },
       });
+
+      // 선택된 소모임에 gathering_member 생성
+      if (validGatheringIds.length > 0) {
+        await tx.gathering_member.createMany({
+          data: validGatheringIds.map((gatheringId) => ({
+            id: randomUUID(),
+            gathering_id: gatheringId,
+            group_member_id: newGroupMemberId,
+          })),
+        });
+      }
 
       await tx.education_program.update({
         where: { id: program.id },

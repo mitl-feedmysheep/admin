@@ -73,6 +73,11 @@ export function NewcomerManageClient() {
   const [graduateTargetGroupId, setGraduateTargetGroupId] = useState("");
   const [isGraduating, setIsGraduating] = useState(false);
 
+  // 졸업 시 소모임 선택 상태
+  const [graduateGatherings, setGraduateGatherings] = useState<{ id: string; name: string; date: string }[]>([]);
+  const [graduateGatheringsLoading, setGraduateGatheringsLoading] = useState(false);
+  const [graduateSelectedGatheringIds, setGraduateSelectedGatheringIds] = useState<string[]>([]);
+
   const fetchNewcomers = useCallback(async (year: string) => {
     setNewcomerLoading(true);
     try {
@@ -106,6 +111,41 @@ export function NewcomerManageClient() {
     fetchAllGroups(yearFilter);
   }, [yearFilter, fetchNewcomers, fetchAllGroups]);
 
+  // 졸업 대상 소그룹 변경 시 소모임 목록 불러오기
+  const fetchGraduateGatherings = useCallback(async (groupId: string) => {
+    if (!groupId) {
+      setGraduateGatherings([]);
+      setGraduateSelectedGatheringIds([]);
+      return;
+    }
+    setGraduateGatheringsLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${groupId}/gatherings`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const gatherings = data.data.gatherings;
+        setGraduateGatherings(gatherings);
+        if (gatherings.length > 0) {
+          setGraduateSelectedGatheringIds([gatherings[0].id]);
+        } else {
+          setGraduateSelectedGatheringIds([]);
+        }
+      } else {
+        setGraduateGatherings([]);
+        setGraduateSelectedGatheringIds([]);
+      }
+    } catch {
+      setGraduateGatherings([]);
+      setGraduateSelectedGatheringIds([]);
+    } finally {
+      setGraduateGatheringsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGraduateGatherings(graduateTargetGroupId);
+  }, [graduateTargetGroupId, fetchGraduateGatherings]);
+
   const handleGraduate = async () => {
     if (!graduateTarget || !graduateTargetGroupId) return;
     setIsGraduating(true);
@@ -117,6 +157,7 @@ export function NewcomerManageClient() {
           groupId: graduateTarget.groupId,
           groupMemberId: graduateTarget.groupMemberId,
           targetGroupId: graduateTargetGroupId,
+          gatheringIds: graduateSelectedGatheringIds.length > 0 ? graduateSelectedGatheringIds : undefined,
         }),
       });
       const data = await res.json();
@@ -128,6 +169,7 @@ export function NewcomerManageClient() {
       setGraduateDialogOpen(false);
       setGraduateTarget(null);
       setGraduateTargetGroupId("");
+      setGraduateSelectedGatheringIds([]);
       fetchNewcomers(yearFilter);
       fetchAllGroups(yearFilter);
     } catch {
@@ -392,6 +434,50 @@ export function NewcomerManageClient() {
               </Select>
               <p className="text-xs text-slate-500">졸업 후 해당 소그룹의 일반멤버로 편성됩니다.</p>
             </div>
+
+            {graduateTargetGroupId && (
+              <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    소모임에도 추가
+                  </Label>
+                  {graduateGatheringsLoading && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+                </div>
+                {!graduateGatheringsLoading && graduateGatherings.length === 0 ? (
+                  <p className="text-sm text-slate-400">해당 소그룹에 소모임이 없습니다.</p>
+                ) : (
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {graduateGatherings.map((gathering, index) => (
+                      <div key={gathering.id} className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id={`grad-gathering-${gathering.id}`}
+                          checked={graduateSelectedGatheringIds.includes(gathering.id)}
+                          onChange={(e) => {
+                            setGraduateSelectedGatheringIds((prev) =>
+                              e.target.checked
+                                ? [...prev, gathering.id]
+                                : prev.filter((id) => id !== gathering.id)
+                            );
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 text-slate-800 accent-slate-800 cursor-pointer"
+                        />
+                        <label
+                          htmlFor={`grad-gathering-${gathering.id}`}
+                          className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer select-none"
+                        >
+                          <span>{gathering.name}</span>
+                          <span className="text-xs text-slate-400">{gathering.date.replaceAll("-", "/")}</span>
+                          {index === 0 && (
+                            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">최신</span>
+                          )}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGraduateDialogOpen(false)} disabled={isGraduating}>
