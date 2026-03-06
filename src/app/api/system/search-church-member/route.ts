@@ -11,22 +11,65 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const email = searchParams.get("email")?.trim();
+    const query = searchParams.get("q")?.trim();
 
-    if (!email) {
+    if (!email && !query) {
       return NextResponse.json(
-        { error: "이메일을 입력해주세요." },
+        { error: "검색어를 입력해주세요." },
         { status: 400 }
       );
     }
 
     // 본인 교회 소속 멤버만 검색
-    const churchMember = await prisma.church_member.findFirst({
+    if (email) {
+      // 기존: 이메일 정확 검색 (단건)
+      const churchMember = await prisma.church_member.findFirst({
+        where: {
+          church_id: session.churchId,
+          deleted_at: null,
+          member: {
+            email,
+            deleted_at: null,
+          },
+        },
+        include: {
+          member: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      if (!churchMember) {
+        return NextResponse.json(
+          { error: "해당 이메일의 교회 소속 유저를 찾을 수 없습니다." },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        member: {
+          memberId: churchMember.member.id,
+          name: churchMember.member.name,
+          email: churchMember.member.email,
+        },
+      });
+    }
+
+    // 이름 또는 전화번호로 검색 (복수 결과)
+    const churchMembers = await prisma.church_member.findMany({
       where: {
         church_id: session.churchId,
         deleted_at: null,
         member: {
-          email,
           deleted_at: null,
+          OR: [
+            { name: { contains: query } },
+            { phone: { contains: query } },
+          ],
         },
       },
       include: {
@@ -35,24 +78,27 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             email: true,
+            phone: true,
           },
         },
       },
+      take: 20,
     });
 
-    if (!churchMember) {
+    if (churchMembers.length === 0) {
       return NextResponse.json(
-        { error: "해당 이메일의 교회 소속 유저를 찾을 수 없습니다." },
+        { error: "검색 결과가 없습니다." },
         { status: 404 }
       );
     }
 
     return NextResponse.json({
-      member: {
-        memberId: churchMember.member.id,
-        name: churchMember.member.name,
-        email: churchMember.member.email,
-      },
+      members: churchMembers.map((cm) => ({
+        memberId: cm.member.id,
+        name: cm.member.name,
+        email: cm.member.email,
+        phone: cm.member.phone,
+      })),
     });
   } catch (error) {
     console.error("Search church member error:", error);
