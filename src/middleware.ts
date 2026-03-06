@@ -13,7 +13,7 @@ const authRoutes = ["/login"];
 
 const superAdminRoutes = ["/manage/visit", "/manage/prayer"];
 
-const systemAdminRoutes = ["/system/church"];
+const systemAdminRoutes = ["/system/church", "/system/monitoring"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { getSession } from "@/lib/auth";
 
 /**
  * GET /api/system/monitoring
@@ -8,8 +8,10 @@ import { requireSuperAdmin } from "@/lib/require-super-admin";
  * Query: range (1h | 6h | 24h | 7d | 30d, default: 24h)
  */
 export async function GET(request: NextRequest) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const session = await getSession();
+  if (!session || session.memberId !== process.env.SYSTEM_ADMIN_MEMBER_ID) {
+    return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+  }
 
   try {
     const { searchParams } = new URL(request.url);
