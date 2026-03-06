@@ -61,13 +61,16 @@ interface ContainerMetric {
   mysql_threads_running: number | null;
 }
 
+interface UmamiStats {
+  pageviews: number;
+  visitors: number;
+  visits: number;
+  bounces: number;
+  totaltime: number;
+}
+
 interface UmamiSiteData {
-  stats: {
-    pageviews: { value: number };
-    visitors: { value: number };
-    bounces: { value: number };
-    totaltime: { value: number };
-  } | null;
+  stats: UmamiStats | null;
   active: { x: number } | null;
   pageviews: {
     pageviews: Array<{ x: string; y: number }>;
@@ -462,7 +465,7 @@ export function MonitoringClient() {
       {data.umami && (
         <div>
           <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">
-            방문자 현황 (Umami)
+            방문자 현황
           </h2>
 
           {/* 통계 카드 */}
@@ -494,7 +497,7 @@ export function MonitoringClient() {
                           페이지뷰
                         </p>
                         <p className="font-semibold text-slate-900 dark:text-white">
-                          {site?.stats?.pageviews?.value?.toLocaleString() ?? 0}
+                          {site?.stats?.pageviews?.toLocaleString() ?? 0}
                         </p>
                       </div>
                       <div>
@@ -502,7 +505,7 @@ export function MonitoringClient() {
                           방문자
                         </p>
                         <p className="font-semibold text-slate-900 dark:text-white">
-                          {site?.stats?.visitors?.value?.toLocaleString() ?? 0}
+                          {site?.stats?.visitors?.toLocaleString() ?? 0}
                         </p>
                       </div>
                       <div>
@@ -510,7 +513,7 @@ export function MonitoringClient() {
                           이탈
                         </p>
                         <p className="font-semibold text-slate-900 dark:text-white">
-                          {site?.stats?.bounces?.value ?? 0}
+                          {site?.stats?.bounces ?? 0}
                         </p>
                       </div>
                       <div>
@@ -519,7 +522,7 @@ export function MonitoringClient() {
                         </p>
                         <p className="font-semibold text-slate-900 dark:text-white">
                           {Math.round(
-                            (site?.stats?.totaltime?.value ?? 0) / 1000,
+                            (site?.stats?.totaltime ?? 0) / 1000,
                           )}
                           s
                         </p>
