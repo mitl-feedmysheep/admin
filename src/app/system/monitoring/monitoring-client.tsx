@@ -100,14 +100,12 @@ const CONTAINER_COLORS: Record<string, string> = {
   "intotheheaven-api": "#3b82f6",
   "intotheheaven-admin": "#8b5cf6",
   "local-mysql": "#f59e0b",
-  umami: "#10b981",
 };
 
 const CONTAINER_LABELS: Record<string, string> = {
   "intotheheaven-api": "Backend",
   "intotheheaven-admin": "Admin",
   "local-mysql": "MySQL",
-  umami: "Umami",
 };
 
 // --- Helpers ---
