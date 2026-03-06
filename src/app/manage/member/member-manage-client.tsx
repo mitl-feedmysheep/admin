@@ -415,7 +415,7 @@ function EditMemberInfoTab() {
                 <Button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="gap-2 bg-slate-800 hover:bg-slate-700"
+                  className="gap-2 bg-indigo-600 hover:bg-indigo-500 text-white"
                 >
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
