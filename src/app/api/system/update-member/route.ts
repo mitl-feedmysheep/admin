@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { randomUUID } from "crypto";
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -64,20 +65,33 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    await prisma.member.update({
-      where: { id: targetMemberId },
-      data: {
-        name,
-        email,
-        sex,
-        birthday: new Date(birthday),
-        phone,
-        address: address || null,
-        occupation: occupation || null,
-        baptism_status: baptismStatus || null,
-        mbti: mbti || null,
-        description: description || null,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.member.update({
+        where: { id: targetMemberId },
+        data: {
+          name,
+          email,
+          sex,
+          birthday: new Date(birthday),
+          phone,
+          address: address || null,
+          occupation: occupation || null,
+          baptism_status: baptismStatus || null,
+          mbti: mbti || null,
+          description: description || null,
+        },
+      });
+
+      await tx.activity_log.create({
+        data: {
+          id: randomUUID(),
+          church_id: session.churchId,
+          actor_id: session.memberId,
+          action_type: "UPDATE",
+          entity_type: "MEMBER",
+          entity_id: targetMemberId,
+        },
+      });
     });
 
     return NextResponse.json({ success: true });

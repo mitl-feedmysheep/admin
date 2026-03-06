@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,9 +42,22 @@ export async function POST(request: NextRequest) {
     // bcrypt hash (Spring Security BCryptPasswordEncoder 호환, salt rounds 10)
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    await prisma.member.update({
-      where: { id: targetMemberId },
-      data: { password: hashedPassword },
+    await prisma.$transaction(async (tx) => {
+      await tx.member.update({
+        where: { id: targetMemberId },
+        data: { password: hashedPassword },
+      });
+
+      await tx.activity_log.create({
+        data: {
+          id: randomUUID(),
+          church_id: session.churchId,
+          actor_id: session.memberId,
+          action_type: "UPDATE",
+          entity_type: "MEMBER",
+          entity_id: targetMemberId,
+        },
+      });
     });
 
     return NextResponse.json({ success: true });
