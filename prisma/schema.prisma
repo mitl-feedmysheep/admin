@@ -368,3 +368,28 @@ model message {
   @@index([receiver_id, is_read], map: "idx_message_receiver_unread")
   @@index([sender_id], map: "idx_message_sender_id")
 }
+
+/// 서버/DB/API 리소스 메트릭 (5분 간격 수집, 영구 보존)
+model metrics {
+  id                  BigInt    @id @default(autoincrement())
+  collected_at        DateTime  @db.DateTime(0)
+  container_name      String    @db.VarChar(50)
+  status              String    @db.VarChar(20)
+  cpu_percent         Decimal?  @db.Decimal(5, 2)
+  memory_mb           Int?
+  memory_percent      Decimal?  @db.Decimal(5, 2)
+  disk_percent        Decimal?  @db.Decimal(5, 2)
+  network_rx_mb       Decimal?  @db.Decimal(10, 2)
+  network_tx_mb       Decimal?  @db.Decimal(10, 2)
+  restart_count       Int?      @default(0)
+  api_avg_response_ms Int?
+  api_error_rate      Decimal?  @db.Decimal(5, 2)
+  jvm_heap_mb         Int?
+  active_threads      Int?
+  mysql_connections   Int?
+  mysql_slow_queries  Int?
+  mysql_threads_running Int?
+
+  @@index([collected_at(sort: Desc)], map: "idx_metrics_collected")
+  @@index([container_name, collected_at(sort: Desc)], map: "idx_metrics_container_time")
+}

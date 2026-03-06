@@ -17,6 +17,7 @@ import {
   Home,
   BookOpen,
   Settings,
+  Activity,
 } from "lucide-react";
 import { hasPermissionOver } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
@@ -286,6 +287,19 @@ export function Sidebar({ churchId, churchName, memberName, role, isSystemAdmin,
           >
             <Settings className="h-5 w-5" />
             교회 관리
+          </Link>
+          <Link
+            href="/system/monitoring"
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              pathname.startsWith("/system/monitoring")
+                ? "bg-indigo-600 text-white"
+                : "text-slate-300 hover:bg-slate-800 hover:text-white"
+            )}
+          >
+            <Activity className="h-5 w-5" />
+            모니터링
           </Link>
         </div>
       )}
