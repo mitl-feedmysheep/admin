@@ -110,39 +110,39 @@ export async function GET(request: NextRequest) {
       const startAt = since.getTime();
       const endAt = now.getTime();
 
-      try {
-        const [webAppStats, adminStats, webAppActive, adminActive] =
-          await Promise.all([
-            umamiWebAppId
-              ? fetch(
-                  `${umamiUrl}/api/websites/${umamiWebAppId}/stats?startAt=${startAt}&endAt=${endAt}`,
-                  { headers },
-                ).then((r) => r.json())
-              : null,
-            umamiAdminId
-              ? fetch(
-                  `${umamiUrl}/api/websites/${umamiAdminId}/stats?startAt=${startAt}&endAt=${endAt}`,
-                  { headers },
-                ).then((r) => r.json())
-              : null,
-            umamiWebAppId
-              ? fetch(
-                  `${umamiUrl}/api/websites/${umamiWebAppId}/active`,
-                  { headers },
-                ).then((r) => r.json())
-              : null,
-            umamiAdminId
-              ? fetch(
-                  `${umamiUrl}/api/websites/${umamiAdminId}/active`,
-                  { headers },
-                ).then((r) => r.json())
-              : null,
-          ]);
+      const fetchUmami = (path: string) =>
+        fetch(`${umamiUrl}${path}`, { headers }).then((r) => r.json());
 
-        umamiData = {
-          webApp: { stats: webAppStats, active: webAppActive },
-          admin: { stats: adminStats, active: adminActive },
+      const unit = range === "1h" || range === "6h" ? "hour" : "day";
+
+      try {
+        const fetchSiteData = async (siteId: string | undefined) => {
+          if (!siteId) return null;
+          const [stats, active, pageviews, topPages, devices] =
+            await Promise.all([
+              fetchUmami(
+                `/api/websites/${siteId}/stats?startAt=${startAt}&endAt=${endAt}`,
+              ),
+              fetchUmami(`/api/websites/${siteId}/active`),
+              fetchUmami(
+                `/api/websites/${siteId}/pageviews?startAt=${startAt}&endAt=${endAt}&unit=${unit}`,
+              ),
+              fetchUmami(
+                `/api/websites/${siteId}/metrics?startAt=${startAt}&endAt=${endAt}&type=url&limit=5`,
+              ),
+              fetchUmami(
+                `/api/websites/${siteId}/metrics?startAt=${startAt}&endAt=${endAt}&type=device`,
+              ),
+            ]);
+          return { stats, active, pageviews, topPages, devices };
         };
+
+        const [webApp, admin] = await Promise.all([
+          fetchSiteData(umamiWebAppId),
+          fetchSiteData(umamiAdminId),
+        ]);
+
+        umamiData = { webApp, admin };
       } catch (e) {
         console.error("Umami API error:", e);
       }

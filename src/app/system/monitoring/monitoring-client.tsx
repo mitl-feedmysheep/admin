@@ -69,6 +69,12 @@ interface UmamiSiteData {
     totaltime: { value: number };
   } | null;
   active: { x: number } | null;
+  pageviews: {
+    pageviews: Array<{ x: string; y: number }>;
+    sessions: Array<{ x: string; y: number }>;
+  } | null;
+  topPages: Array<{ x: string; y: number }> | null;
+  devices: Array<{ x: string; y: number }> | null;
 }
 
 interface MonitoringData {
@@ -458,109 +464,180 @@ export function MonitoringClient() {
           <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">
             방문자 현황 (Umami)
           </h2>
+
+          {/* 통계 카드 */}
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Web App */}
-            {data.umami.webApp?.stats && (
-              <Card className="border-slate-200 dark:border-slate-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-900 dark:text-white">
-                    Web App
-                  </CardTitle>
-                  <CardDescription>
-                    {data.umami.webApp.active
-                      ? `현재 활성 사용자: ${data.umami.webApp.active.x ?? 0}명`
-                      : ""}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-4 gap-2 text-sm">
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        페이지뷰
-                      </p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {data.umami.webApp.stats.pageviews?.value?.toLocaleString() ?? 0}
-                      </p>
+            {[
+              { label: "Web App", site: data.umami.webApp },
+              { label: "Admin", site: data.umami.admin },
+            ]
+              .filter((s) => s.site?.stats)
+              .map(({ label, site }) => (
+                <Card
+                  key={label}
+                  className="border-slate-200 dark:border-slate-800"
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-slate-900 dark:text-white">
+                      {label}
+                    </CardTitle>
+                    <CardDescription>
+                      {site?.active
+                        ? `현재 활성 사용자: ${site.active.x ?? 0}명`
+                        : ""}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-4 gap-2 text-sm">
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          페이지뷰
+                        </p>
+                        <p className="font-semibold text-slate-900 dark:text-white">
+                          {site?.stats?.pageviews?.value?.toLocaleString() ?? 0}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          방문자
+                        </p>
+                        <p className="font-semibold text-slate-900 dark:text-white">
+                          {site?.stats?.visitors?.value?.toLocaleString() ?? 0}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          이탈
+                        </p>
+                        <p className="font-semibold text-slate-900 dark:text-white">
+                          {site?.stats?.bounces?.value ?? 0}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          체류시간
+                        </p>
+                        <p className="font-semibold text-slate-900 dark:text-white">
+                          {Math.round(
+                            (site?.stats?.totaltime?.value ?? 0) / 1000,
+                          )}
+                          s
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        방문자
-                      </p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {data.umami.webApp.stats.visitors?.value?.toLocaleString() ?? 0}
-                      </p>
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+
+          {/* 방문자 추이 차트 */}
+          {data.umami.webApp?.pageviews && (
+            <Card className="mt-4 border-slate-200 dark:border-slate-800">
+              <CardHeader>
+                <CardTitle className="text-slate-900 dark:text-white">
+                  Web App 방문자 추이
+                </CardTitle>
+                <CardDescription>페이지뷰 / 세션</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={data.umami.webApp.pageviews.pageviews.map(
+                        (pv, i) => ({
+                          time: pv.x.slice(5, 10),
+                          pageviews: pv.y,
+                          sessions:
+                            data.umami?.webApp?.pageviews?.sessions?.[i]?.y ?? 0,
+                        }),
+                      )}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis
+                        dataKey="time"
+                        tick={{ fontSize: 12, fill: "#94a3b8" }}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis
+                        tick={{ fontSize: 12, fill: "#94a3b8" }}
+                        allowDecimals={false}
+                      />
+                      <Tooltip />
+                      <Bar
+                        dataKey="pageviews"
+                        name="페이지뷰"
+                        fill="#3b82f6"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="sessions"
+                        name="세션"
+                        fill="#8b5cf6"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 인기 페이지 & 기기별 비율 */}
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {data.umami.webApp?.topPages &&
+              data.umami.webApp.topPages.length > 0 && (
+                <Card className="border-slate-200 dark:border-slate-800">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium text-slate-900 dark:text-white">
+                      인기 페이지 (Web App)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {data.umami.webApp.topPages.map((page) => (
+                        <div
+                          key={page.x}
+                          className="flex items-center justify-between text-sm"
+                        >
+                          <span className="max-w-[200px] truncate text-slate-700 dark:text-slate-300">
+                            {page.x}
+                          </span>
+                          <span className="font-semibold text-slate-900 dark:text-white">
+                            {page.y}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        이탈
-                      </p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {data.umami.webApp.stats.bounces?.value ?? 0}
-                      </p>
+                  </CardContent>
+                </Card>
+              )}
+            {data.umami.webApp?.devices &&
+              data.umami.webApp.devices.length > 0 && (
+                <Card className="border-slate-200 dark:border-slate-800">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium text-slate-900 dark:text-white">
+                      기기별 방문 (Web App)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {data.umami.webApp.devices.map((device) => (
+                        <div
+                          key={device.x}
+                          className="flex items-center justify-between text-sm"
+                        >
+                          <span className="text-slate-700 dark:text-slate-300">
+                            {device.x || "알 수 없음"}
+                          </span>
+                          <span className="font-semibold text-slate-900 dark:text-white">
+                            {device.y}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        체류시간
-                      </p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {Math.round((data.umami.webApp.stats.totaltime?.value ?? 0) / 1000)}s
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {/* Admin */}
-            {data.umami.admin?.stats && (
-              <Card className="border-slate-200 dark:border-slate-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-900 dark:text-white">
-                    Admin
-                  </CardTitle>
-                  <CardDescription>
-                    {data.umami.admin.active
-                      ? `현재 활성 사용자: ${data.umami.admin.active.x ?? 0}명`
-                      : ""}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-4 gap-2 text-sm">
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        페이지뷰
-                      </p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {data.umami.admin.stats.pageviews?.value?.toLocaleString() ?? 0}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        방문자
-                      </p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {data.umami.admin.stats.visitors?.value?.toLocaleString() ?? 0}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        이탈
-                      </p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {data.umami.admin.stats.bounces?.value ?? 0}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        체류시간
-                      </p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {Math.round((data.umami.admin.stats.totaltime?.value ?? 0) / 1000)}s
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  </CardContent>
+                </Card>
+              )}
           </div>
         </div>
       )}
