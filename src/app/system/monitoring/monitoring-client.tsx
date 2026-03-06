@@ -97,19 +97,17 @@ const RANGE_OPTIONS = [
 ];
 
 const CONTAINER_COLORS: Record<string, string> = {
-  "into-the-heaven-backend": "#3b82f6",
-  "into-the-heaven-admin": "#8b5cf6",
-  mysql: "#f59e0b",
+  "intotheheaven-api": "#3b82f6",
+  "intotheheaven-admin": "#8b5cf6",
+  "local-mysql": "#f59e0b",
   umami: "#10b981",
-  "mysql-backup": "#6b7280",
 };
 
 const CONTAINER_LABELS: Record<string, string> = {
-  "into-the-heaven-backend": "Backend",
-  "into-the-heaven-admin": "Admin",
-  mysql: "MySQL",
+  "intotheheaven-api": "Backend",
+  "intotheheaven-admin": "Admin",
+  "local-mysql": "MySQL",
   umami: "Umami",
-  "mysql-backup": "MySQL Backup",
 };
 
 // --- Helpers ---
@@ -229,7 +227,7 @@ export function MonitoringClient() {
 
   // Backend-only charts
   const backendHistory = useMemo(
-    () => (data ? data.history.filter((r) => r.container_name === "into-the-heaven-backend") : []),
+    () => (data ? data.history.filter((r) => r.container_name === "intotheheaven-api") : []),
     [data],
   );
   const apiChartData = useMemo(() => {
@@ -242,7 +240,7 @@ export function MonitoringClient() {
 
   // MySQL-only charts
   const mysqlHistory = useMemo(
-    () => (data ? data.history.filter((r) => r.container_name === "mysql") : []),
+    () => (data ? data.history.filter((r) => r.container_name === "local-mysql") : []),
     [data],
   );
   const mysqlChartData = useMemo(() => {

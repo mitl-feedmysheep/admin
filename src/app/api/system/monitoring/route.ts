@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const since = new Date(now.getTime() - (rangeMap[range] || rangeMap["24h"]));
 
     // 1. 최신 메트릭 (컨테이너별 현재 상태)
-    const latestMetrics = await prisma.$queryRaw`
+    const latestMetricsRaw = await prisma.$queryRaw`
       SELECT m.* FROM metrics m
       INNER JOIN (
         SELECT container_name, MAX(collected_at) as max_at
@@ -35,11 +35,26 @@ export async function GET(request: NextRequest) {
       ) latest ON m.container_name = latest.container_name AND m.collected_at = latest.max_at
     ` as Array<Record<string, unknown>>;
 
+    // BigInt → Number 변환 (JSON 직렬화 불가 방지)
+    const toSerializable = (rows: Array<Record<string, unknown>>) =>
+      rows.map((row) => {
+        const obj: Record<string, unknown> = {};
+        for (const [key, val] of Object.entries(row)) {
+          obj[key] = typeof val === "bigint" ? Number(val) : val;
+        }
+        return obj;
+      });
+
+    const latestMetrics = toSerializable(latestMetricsRaw);
+
     // 2. 시간별 메트릭 추이
-    const metricsHistory = await prisma.metrics.findMany({
+    const metricsHistoryRaw = await prisma.metrics.findMany({
       where: { collected_at: { gte: since } },
       orderBy: { collected_at: "asc" },
     });
+    const metricsHistory = toSerializable(
+      metricsHistoryRaw.map((r) => ({ ...r }) as Record<string, unknown>),
+    );
 
     // 3. 앱 활동 지표
     const weekStart = new Date(now);
@@ -70,7 +85,12 @@ export async function GET(request: NextRequest) {
           AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
         GROUP BY DATE(created_at)
         ORDER BY date ASC
-      ` as Promise<Array<{ date: string; count: number }>>,
+      `.then((rows) =>
+          (rows as Array<Record<string, unknown>>).map((r) => ({
+            date: r.date,
+            count: Number(r.count),
+          })),
+        ) as Promise<Array<{ date: string; count: number }>>,
       ]);
 
     // 4. Umami 데이터 (별도 fetch)
