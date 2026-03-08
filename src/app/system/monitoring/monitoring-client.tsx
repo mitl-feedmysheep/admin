@@ -67,6 +67,8 @@ interface MonitoringData {
     weeklyPrayers: number;
     totalPrayers: number;
     recentSignups: Array<{ date: string; count: number | bigint }>;
+    weekStart: string;
+    weekEnd: string;
   };
 }
 
@@ -440,7 +442,7 @@ export function MonitoringClient() {
           앱 활동 지표
         </h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-slate-200 dark:border-slate-800">
+          <Card className="border-slate-200 dark:border-slate-800" title={`${data.activity.weekStart} (일) ~ ${data.activity.weekEnd} (토)`}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">
                 이번 주 모임 생성
@@ -453,7 +455,7 @@ export function MonitoringClient() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200 dark:border-slate-800">
+          <Card className="border-slate-200 dark:border-slate-800" title={`${data.activity.weekStart} (일) ~ ${data.activity.weekEnd} (토)`}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">
                 이번 주 기도제목

@@ -58,23 +58,27 @@ export async function GET(request: NextRequest) {
       metricsHistoryRaw.map((r) => ({ ...r }) as Record<string, unknown>),
     );
 
-    // 3. 앱 활동 지표
+    // 3. 앱 활동 지표 (일요일~토요일 기준)
+    const day = now.getDay(); // 0=일요일
     const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setDate(now.getDate() - day);
     weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
 
     const [weeklyGatherings, weeklyPrayers, totalPrayers, recentSignups] =
       await Promise.all([
         prisma.gathering.count({
           where: {
             deleted_at: null,
-            created_at: { gte: weekStart },
+            created_at: { gte: weekStart, lte: weekEnd },
           },
         }),
         prisma.prayer.count({
           where: {
             deleted_at: null,
-            created_at: { gte: weekStart },
+            created_at: { gte: weekStart, lte: weekEnd },
           },
         }),
         prisma.prayer.count({
@@ -158,6 +162,8 @@ export async function GET(request: NextRequest) {
           weeklyPrayers,
           totalPrayers,
           recentSignups,
+          weekStart: weekStart.toISOString().slice(0, 10),
+          weekEnd: weekEnd.toISOString().slice(0, 10),
         },
         umami: umamiData,
       },
