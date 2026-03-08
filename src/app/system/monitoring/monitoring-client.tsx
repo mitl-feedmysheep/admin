@@ -21,10 +21,10 @@ import {
   RefreshCcw,
   Server,
   Activity,
-  Users,
   BookOpen,
   HandHeart,
   UserPlus,
+  HardDrive,
 } from "lucide-react";
 import {
   LineChart,
@@ -34,8 +34,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
 } from "recharts";
 
 // --- Types ---
@@ -61,25 +59,6 @@ interface ContainerMetric {
   mysql_threads_running: number | null;
 }
 
-interface UmamiStats {
-  pageviews: number;
-  visitors: number;
-  visits: number;
-  bounces: number;
-  totaltime: number;
-}
-
-interface UmamiSiteData {
-  stats: UmamiStats | null;
-  active: { x: number } | null;
-  pageviews: {
-    pageviews: Array<{ x: string; y: number }>;
-    sessions: Array<{ x: string; y: number }>;
-  } | null;
-  topPages: Array<{ x: string; y: number }> | null;
-  devices: Array<{ x: string; y: number }> | null;
-}
-
 interface MonitoringData {
   containers: ContainerMetric[];
   history: ContainerMetric[];
@@ -89,10 +68,6 @@ interface MonitoringData {
     totalPrayers: number;
     recentSignups: Array<{ date: string; count: number | bigint }>;
   };
-  umami: {
-    webApp: UmamiSiteData;
-    admin: UmamiSiteData;
-  } | null;
 }
 
 // --- Constants ---
@@ -258,15 +233,6 @@ export function MonitoringClient() {
     }));
   }, [mysqlHistory, range]);
 
-  // Signup chart
-  const signupChartData = useMemo(() => {
-    if (!data) return [];
-    return data.activity.recentSignups.map((r) => ({
-      date: String(r.date).slice(5),
-      count: Number(r.count),
-    }));
-  }, [data]);
-
   // Total new signups in 30 days
   const totalNewSignups = useMemo(() => {
     if (!data) return 0;
@@ -397,6 +363,74 @@ export function MonitoringClient() {
               </Card>
             );
           })}
+          {/* 디스크 사용량 카드 */}
+          {(() => {
+            const latestDisk = data.containers.length > 0
+              ? parseDecimal(data.containers[0].disk_percent)
+              : null;
+            if (latestDisk === null) return null;
+            return (
+              <Card className={`border ${
+                latestDisk >= 90
+                  ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+                  : latestDisk >= 80
+                    ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
+                    : "border-slate-200 dark:border-slate-800"
+              }`}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className={`text-sm font-medium ${
+                    latestDisk >= 90
+                      ? "text-red-600 dark:text-red-400"
+                      : latestDisk >= 80
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-slate-900 dark:text-white"
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <HardDrive className={`h-4 w-4 ${
+                        latestDisk >= 90
+                          ? "text-red-500"
+                          : latestDisk >= 80
+                            ? "text-amber-500"
+                            : "text-slate-400"
+                      }`} />
+                      호스트 디스크
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${
+                    latestDisk >= 90
+                      ? "text-red-600 dark:text-red-400"
+                      : latestDisk >= 80
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-slate-900 dark:text-white"
+                  }`}>
+                    {latestDisk}%
+                  </div>
+                  <div className="mt-2 h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700">
+                    <div
+                      className={`h-2 rounded-full transition-all ${
+                        latestDisk >= 90
+                          ? "bg-red-500"
+                          : latestDisk >= 80
+                            ? "bg-amber-500"
+                            : latestDisk >= 60
+                              ? "bg-blue-500"
+                              : "bg-emerald-500"
+                      }`}
+                      style={{ width: `${latestDisk}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {latestDisk >= 90 ? "디스크 공간 부족" : latestDisk >= 80 ? "디스크 정리 필요" : "macOS 호스트"}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    마지막 수집: {formatLastCollected(data.containers[0].collected_at)}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })()}
         </div>
       </div>
 
@@ -461,191 +495,7 @@ export function MonitoringClient() {
         </div>
       </div>
 
-      {/* C. 방문자 현황 (Umami) */}
-      {data.umami && (
-        <div>
-          <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">
-            방문자 현황
-          </h2>
-
-          {/* 통계 카드 */}
-          <div className="grid gap-4 md:grid-cols-2">
-            {[
-              { label: "Web App", site: data.umami.webApp },
-              { label: "Admin", site: data.umami.admin },
-            ]
-              .filter((s) => s.site?.stats)
-              .map(({ label, site }) => (
-                <Card
-                  key={label}
-                  className="border-slate-200 dark:border-slate-800"
-                >
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-slate-900 dark:text-white">
-                      {label}
-                    </CardTitle>
-                    <CardDescription>
-                      {site?.active
-                        ? `현재 활성 사용자: ${site.active.x ?? 0}명`
-                        : ""}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-4 gap-2 text-sm">
-                      <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          페이지뷰
-                        </p>
-                        <p className="font-semibold text-slate-900 dark:text-white">
-                          {site?.stats?.pageviews?.toLocaleString() ?? 0}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          방문자
-                        </p>
-                        <p className="font-semibold text-slate-900 dark:text-white">
-                          {site?.stats?.visitors?.toLocaleString() ?? 0}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          이탈
-                        </p>
-                        <p className="font-semibold text-slate-900 dark:text-white">
-                          {site?.stats?.bounces ?? 0}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          체류시간
-                        </p>
-                        <p className="font-semibold text-slate-900 dark:text-white">
-                          {Math.round(
-                            (site?.stats?.totaltime ?? 0) / 1000,
-                          )}
-                          s
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-          </div>
-
-          {/* 방문자 추이 차트 */}
-          {data.umami.webApp?.pageviews && (
-            <Card className="mt-4 border-slate-200 dark:border-slate-800">
-              <CardHeader>
-                <CardTitle className="text-slate-900 dark:text-white">
-                  Web App 방문자 추이
-                </CardTitle>
-                <CardDescription>페이지뷰 / 세션</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={data.umami.webApp.pageviews.pageviews.map(
-                        (pv, i) => ({
-                          time: pv.x.slice(5, 10),
-                          pageviews: pv.y,
-                          sessions:
-                            data.umami?.webApp?.pageviews?.sessions?.[i]?.y ?? 0,
-                        }),
-                      )}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis
-                        dataKey="time"
-                        tick={{ fontSize: 12, fill: "#94a3b8" }}
-                        interval="preserveStartEnd"
-                      />
-                      <YAxis
-                        tick={{ fontSize: 12, fill: "#94a3b8" }}
-                        allowDecimals={false}
-                      />
-                      <Tooltip />
-                      <Bar
-                        dataKey="pageviews"
-                        name="페이지뷰"
-                        fill="#3b82f6"
-                        radius={[4, 4, 0, 0]}
-                      />
-                      <Bar
-                        dataKey="sessions"
-                        name="세션"
-                        fill="#8b5cf6"
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 인기 페이지 & 기기별 비율 */}
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {data.umami.webApp?.topPages &&
-              data.umami.webApp.topPages.length > 0 && (
-                <Card className="border-slate-200 dark:border-slate-800">
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium text-slate-900 dark:text-white">
-                      인기 페이지 (Web App)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {data.umami.webApp.topPages.map((page) => (
-                        <div
-                          key={page.x}
-                          className="flex items-center justify-between text-sm"
-                        >
-                          <span className="max-w-[200px] truncate text-slate-700 dark:text-slate-300">
-                            {page.x}
-                          </span>
-                          <span className="font-semibold text-slate-900 dark:text-white">
-                            {page.y}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            {data.umami.webApp?.devices &&
-              data.umami.webApp.devices.length > 0 && (
-                <Card className="border-slate-200 dark:border-slate-800">
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium text-slate-900 dark:text-white">
-                      기기별 방문 (Web App)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {data.umami.webApp.devices.map((device) => (
-                        <div
-                          key={device.x}
-                          className="flex items-center justify-between text-sm"
-                        >
-                          <span className="text-slate-700 dark:text-slate-300">
-                            {device.x || "알 수 없음"}
-                          </span>
-                          <span className="font-semibold text-slate-900 dark:text-white">
-                            {device.y}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-          </div>
-        </div>
-      )}
-
-      {/* D. CPU 사용률 추이 */}
+      {/* C. CPU 사용률 추이 */}
       {cpuChartData.length > 0 && (
         <Card className="border-slate-200 dark:border-slate-800">
           <CardHeader>
@@ -839,42 +689,6 @@ export function MonitoringClient() {
         </Card>
       )}
 
-      {/* H. 신규 가입자 추이 */}
-      {signupChartData.length > 0 && (
-        <Card className="border-slate-200 dark:border-slate-800">
-          <CardHeader>
-            <CardTitle className="text-slate-900 dark:text-white">
-              신규 가입자 추이
-            </CardTitle>
-            <CardDescription>최근 30일간 일별 가입자 수</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={signupChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 12, fill: "#94a3b8" }}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12, fill: "#94a3b8" }}
-                    allowDecimals={false}
-                  />
-                  <Tooltip />
-                  <Bar
-                    dataKey="count"
-                    name="가입자"
-                    fill="#8b5cf6"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
