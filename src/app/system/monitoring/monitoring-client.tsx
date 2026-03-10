@@ -769,7 +769,7 @@ export function MonitoringClient() {
 
       {/* Log Viewer Dialog */}
       <Dialog open={logDialogOpen} onOpenChange={setLogDialogOpen}>
-        <DialogContent className="max-w-[95vw] w-full h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-[95vw] max-w-[calc(100%-2rem)] w-full h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Terminal className="h-5 w-5" />
