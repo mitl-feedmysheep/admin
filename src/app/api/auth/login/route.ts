@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { rolesAtOrAbove } from "@/lib/roles";
+import { withLogging } from "@/lib/api-logger";
 
-export async function POST(request: NextRequest) {
+export const POST = withLogging(async (request: NextRequest) => {
   try {
     const body = await request.json();
     const { email, password } = body;
@@ -79,4 +80,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

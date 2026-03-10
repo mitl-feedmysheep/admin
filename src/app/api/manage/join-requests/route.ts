@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * GET /api/manage/join-requests
  * 교회 편입 요청 목록 조회 (PENDING 건만)
  */
-export async function GET() {
+export const GET = withLogging(async () => {
   try {
     const session = await getSession();
     if (!session) {
@@ -63,4 +64,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

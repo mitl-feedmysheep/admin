@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { withLogging } from "@/lib/api-logger";
 
-export async function POST(request: NextRequest) {
+export const POST = withLogging(async (request: NextRequest) => {
   try {
     const secret = request.headers.get("X-Alert-Secret");
     if (secret !== process.env.ALERT_SECRET) {
@@ -38,4 +39,4 @@ export async function POST(request: NextRequest) {
     console.error("Alert sending failed:", error);
     return NextResponse.json({ error: "알림 발송 실패" }, { status: 500 });
   }
-}
+});

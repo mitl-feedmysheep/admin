@@ -2,16 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { randomUUID } from "crypto";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * PATCH /api/events/[id]
  * 이벤트 수정
  * Body: { title?, startDate?, endDate?, description?, startTime?, endTime?, location? }
  */
-export async function PATCH(
+export const PATCH = withLogging(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -61,16 +62,16 @@ export async function PATCH(
     console.error("Event update error:", error);
     return NextResponse.json({ error: "이벤트 수정 중 오류가 발생했습니다." }, { status: 500 });
   }
-}
+});
 
 /**
  * DELETE /api/events/[id]
  * 이벤트 소프트 삭제
  */
-export async function DELETE(
+export const DELETE = withLogging(async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -110,7 +111,7 @@ export async function DELETE(
     console.error("Event delete error:", error);
     return NextResponse.json({ error: "이벤트 삭제 중 오류가 발생했습니다." }, { status: 500 });
   }
-}
+});
 
 function parseTime(time: string): Date {
   const [h, m] = time.split(":").map(Number);

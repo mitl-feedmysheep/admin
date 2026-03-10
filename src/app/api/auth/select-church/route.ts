@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createToken, setSessionCookie, verifyToken } from "@/lib/auth";
 import { rolesAtOrAbove } from "@/lib/roles";
+import { withLogging } from "@/lib/api-logger";
 
-export async function POST(request: NextRequest) {
+export const POST = withLogging(async (request: NextRequest) => {
   try {
     const body = await request.json();
     const { memberId: rawMemberId, churchId } = body as {
@@ -81,4 +82,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

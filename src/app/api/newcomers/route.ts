@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * GET /api/newcomers?year=2026
  * Retrieves NEWCOMER groups with education programs, members, and progress
  */
-export async function GET(request: NextRequest) {
+export const GET = withLogging(async (request: NextRequest) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -143,4 +144,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

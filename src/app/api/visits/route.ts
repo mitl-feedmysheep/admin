@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/require-super-admin";
 import { randomUUID } from "crypto";
+import { withLogging } from "@/lib/api-logger";
 
-export async function GET(request: NextRequest) {
+export const GET = withLogging(async (request: NextRequest) => {
   const guard = await requireSuperAdmin();
   if (!guard.ok) return guard.response;
 
@@ -79,9 +80,9 @@ export async function GET(request: NextRequest) {
       { status: 500 },
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withLogging(async (request: NextRequest) => {
   const guard = await requireSuperAdmin();
   if (!guard.ok) return guard.response;
 
@@ -139,4 +140,4 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
-}
+});

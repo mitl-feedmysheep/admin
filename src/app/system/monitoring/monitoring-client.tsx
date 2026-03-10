@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Loader2,
   RefreshCcw,
   Server,
@@ -25,6 +32,7 @@ import {
   HandHeart,
   UserPlus,
   HardDrive,
+  Terminal,
 } from "lucide-react";
 import {
   LineChart,
@@ -94,6 +102,18 @@ const CONTAINER_LABELS: Record<string, string> = {
   "local-mysql": "MySQL",
 };
 
+const LOG_CAPABLE_CONTAINERS = new Set([
+  "intotheheaven-api",
+  "intotheheaven-admin",
+]);
+
+const LOG_LINES_OPTIONS = [
+  { value: "100", label: "100줄" },
+  { value: "200", label: "200줄" },
+  { value: "500", label: "500줄" },
+  { value: "1000", label: "1000줄" },
+];
+
 // --- Helpers ---
 
 function parseDecimal(val: string | number | null | undefined): number {
@@ -156,6 +176,16 @@ export function MonitoringClient() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [logDialogOpen, setLogDialogOpen] = useState(false);
+  const [logContainer, setLogContainer] = useState("");
+  const [logLines, setLogLines] = useState("200");
+  const [logContent, setLogContent] = useState("");
+  const [logLoading, setLogLoading] = useState(false);
+  const [logError, setLogError] = useState("");
+  const logEndRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) node.scrollTop = node.scrollHeight;
+  }, []);
+
   const fetchData = useCallback(
     async (isRefresh = false) => {
       if (isRefresh) setRefreshing(true);
@@ -176,6 +206,36 @@ export function MonitoringClient() {
     },
     [range],
   );
+
+  const fetchLogs = useCallback(
+    async (container: string, lines: string) => {
+      setLogLoading(true);
+      setLogError("");
+      setLogContent("");
+      try {
+        const res = await fetch(
+          `/api/system/monitoring/logs?container=${container}&lines=${lines}&since=24h`
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          setLogError(json.error || "로그 조회에 실패했습니다.");
+        } else {
+          setLogContent(json.data.logs || "(로그가 비어있습니다)");
+        }
+      } catch {
+        setLogError("로그 프록시 서버에 연결할 수 없습니다.");
+      } finally {
+        setLogLoading(false);
+      }
+    },
+    []
+  );
+
+  function openLogDialog(containerName: string) {
+    setLogContainer(containerName);
+    setLogDialogOpen(true);
+    fetchLogs(containerName, logLines);
+  }
 
   // Initial load & range change
   useEffect(() => {
@@ -306,16 +366,25 @@ export function MonitoringClient() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {data.containers.map((c) => {
             const isRunning = c.status === "running";
+            const hasLogs = LOG_CAPABLE_CONTAINERS.has(c.container_name);
             return (
               <Card
                 key={c.container_name}
-                className="border-slate-200 dark:border-slate-800"
+                className={`border-slate-200 dark:border-slate-800 ${
+                  hasLogs
+                    ? "cursor-pointer transition-shadow hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600"
+                    : ""
+                }`}
+                onClick={hasLogs ? () => openLogDialog(c.container_name) : undefined}
               >
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-slate-900 dark:text-white">
                     <div className="flex items-center gap-2">
                       <Server className="h-4 w-4 text-slate-400" />
                       {CONTAINER_LABELS[c.container_name] || c.container_name}
+                      {hasLogs && (
+                        <Terminal className="h-3.5 w-3.5 text-slate-400" />
+                      )}
                     </div>
                   </CardTitle>
                   <span
@@ -358,9 +427,16 @@ export function MonitoringClient() {
                       </p>
                     </div>
                   </div>
-                  <p className="mt-2 text-xs text-slate-400">
-                    마지막 수집: {formatLastCollected(c.collected_at)}
-                  </p>
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-slate-400">
+                      마지막 수집: {formatLastCollected(c.collected_at)}
+                    </p>
+                    {hasLogs && (
+                      <p className="text-xs text-blue-500 dark:text-blue-400">
+                        클릭하여 로그 보기
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -691,6 +767,71 @@ export function MonitoringClient() {
         </Card>
       )}
 
+      {/* Log Viewer Dialog */}
+      <Dialog open={logDialogOpen} onOpenChange={setLogDialogOpen}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Terminal className="h-5 w-5" />
+              {CONTAINER_LABELS[logContainer] || logContainer} 로그
+            </DialogTitle>
+            <DialogDescription>
+              컨테이너: {logContainer}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center gap-2">
+            <Select
+              value={logLines}
+              onValueChange={(val) => {
+                setLogLines(val);
+                fetchLogs(logContainer, val);
+              }}
+            >
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LOG_LINES_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => fetchLogs(logContainer, logLines)}
+              disabled={logLoading}
+              title="새로고침"
+            >
+              {logLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+
+          <div
+            ref={logEndRef}
+            className="flex-1 overflow-auto rounded-md bg-slate-950 p-4 font-mono text-xs leading-relaxed text-green-400"
+          >
+            {logLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+              </div>
+            )}
+            {logError && (
+              <div className="text-red-400">{logError}</div>
+            )}
+            {!logLoading && !logError && (
+              <pre className="whitespace-pre-wrap break-all">{logContent}</pre>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

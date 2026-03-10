@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { randomUUID } from "crypto";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * POST /api/manage/join-requests/approve
  * 교회 편입 요청 승인
  * Body: { requestId: string }
  */
-export async function POST(request: NextRequest) {
+export const POST = withLogging(async (request: NextRequest) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -91,4 +92,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

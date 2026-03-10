@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { randomUUID } from "crypto";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * GET /api/events?year=2026&month=3
  * 교회 이벤트 목록 조회 (연월 필터)
  */
-export async function GET(request: NextRequest) {
+export const GET = withLogging(async (request: NextRequest) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -52,14 +53,14 @@ export async function GET(request: NextRequest) {
     console.error("Events list error:", error);
     return NextResponse.json({ error: "이벤트 조회 중 오류가 발생했습니다." }, { status: 500 });
   }
-}
+});
 
 /**
  * POST /api/events
  * 새 이벤트 생성
  * Body: { title, startDate, endDate, description?, startTime?, endTime?, location? }
  */
-export async function POST(request: NextRequest) {
+export const POST = withLogging(async (request: NextRequest) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
     console.error("Event create error:", error);
     return NextResponse.json({ error: "이벤트 생성 중 오류가 발생했습니다." }, { status: 500 });
   }
-}
+});
 
 function formatTime(d: Date): string {
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;

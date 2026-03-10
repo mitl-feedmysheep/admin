@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { randomUUID } from "crypto";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * GET /api/groups/[id]
  * 소그룹 상세 (멤버 목록 포함)
  */
-export async function GET(
+export const GET = withLogging(async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -75,17 +76,17 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * POST /api/groups/[id]/members (→ [id] route에서 처리)
  * 소그룹에 멤버 일괄 할당 + activity_log 기록
  * Body: { memberIds: string[], role: "LEADER" | "SUB_LEADER" | "MEMBER" }
  */
-export async function POST(
+export const POST = withLogging(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -230,17 +231,17 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * PATCH /api/groups/[id]
  * 소그룹 이름 변경 + activity_log 기록
  * Body: { name: string }
  */
-export async function PATCH(
+export const PATCH = withLogging(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -328,4 +329,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});

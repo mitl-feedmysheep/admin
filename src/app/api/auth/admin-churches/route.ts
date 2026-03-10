@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { rolesAtOrAbove } from "@/lib/roles";
+import { withLogging } from "@/lib/api-logger";
 
-export async function GET() {
+export const GET = withLogging(async () => {
   const session = await getSession();
 
   if (!session) {
@@ -26,5 +27,5 @@ export async function GET() {
   }));
 
   return NextResponse.json({ churches });
-}
+});
 

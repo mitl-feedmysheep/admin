@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * GET /api/dashboard/stats
  * 대시보드 상단 통계 카드 데이터
  * Query: year (연도)
  */
-export async function GET(request: NextRequest) {
+export const GET = withLogging(async (request: NextRequest) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -104,4 +105,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

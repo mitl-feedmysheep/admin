@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { withLogging } from "@/lib/api-logger";
 
-export async function DELETE(
+export const DELETE = withLogging(async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> },
-) {
+) => {
   const guard = await requireSuperAdmin();
   if (!guard.ok) return guard.response;
 
@@ -44,12 +45,12 @@ export async function DELETE(
       { status: 500 },
     );
   }
-}
+});
 
-export async function PATCH(
+export const PATCH = withLogging(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> },
-) {
+) => {
   const guard = await requireSuperAdmin();
   if (!guard.ok) return guard.response;
 
@@ -82,4 +83,4 @@ export async function PATCH(
       { status: 500 },
     );
   }
-}
+});

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import crypto from "crypto";
+import { withLogging } from "@/lib/api-logger";
 
-export async function POST(request: NextRequest) {
+export const POST = withLogging(async (request: NextRequest) => {
   try {
     const session = await getSession();
     if (!session || session.memberId !== process.env.SYSTEM_ADMIN_MEMBER_ID) {
@@ -92,4 +93,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

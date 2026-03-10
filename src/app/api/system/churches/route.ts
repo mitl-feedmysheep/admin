@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { withLogging } from "@/lib/api-logger";
 
-export async function GET() {
+export const GET = withLogging(async () => {
   try {
     const session = await getSession();
     if (!session || session.memberId !== process.env.SYSTEM_ADMIN_MEMBER_ID) {
@@ -27,4 +28,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

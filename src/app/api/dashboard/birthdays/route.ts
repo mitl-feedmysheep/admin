@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * GET /api/dashboard/birthdays?offset=0
  * 월 단위 생일 멤버 목록
  * offset: 0=이번 달, -1=지난 달, 1=다음 달, ...
  */
-export async function GET(request: NextRequest) {
+export const GET = withLogging(async (request: NextRequest) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -99,4 +100,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

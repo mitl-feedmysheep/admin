@@ -61,6 +61,18 @@ jobs:
           docker buildx create --name buildkit --use --driver docker-container 2>/dev/null || docker buildx use buildkit
           docker buildx inspect --bootstrap
 
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
       - name: Remove old images
         run: |
           # 이전 intotheheaven-admin 이미지 삭제 (latest 제외)

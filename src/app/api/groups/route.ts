@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { randomUUID } from "crypto";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * GET /api/groups?year=2026
  * 교회에 속한 소그룹 목록 조회 (연도 필터 지원)
  */
-export async function GET(request: NextRequest) {
+export const GET = withLogging(async (request: NextRequest) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -91,14 +92,14 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * POST /api/groups
  * 새 소그룹 생성 + activity_log 기록
  * Body: { name, description?, startDate?, endDate? }
  */
-export async function POST(request: NextRequest) {
+export const POST = withLogging(async (request: NextRequest) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -196,4 +197,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

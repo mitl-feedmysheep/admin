@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * GET /api/groups/[id]/gatherings
  * 소그룹의 소모임 목록 조회 (최신순)
  */
-export async function GET(
+export const GET = withLogging(async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -67,4 +68,4 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});

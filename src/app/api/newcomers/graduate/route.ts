@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { randomUUID } from "crypto";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * POST /api/newcomers/graduate
  * Graduates a member: set status to GRADUATED, add to target group, increment graduated count
  * Body: { groupId, groupMemberId, targetGroupId }
  */
-export async function POST(request: NextRequest) {
+export const POST = withLogging(async (request: NextRequest) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -175,4 +176,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

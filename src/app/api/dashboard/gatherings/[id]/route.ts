@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { withLogging } from "@/lib/api-logger";
 
 /**
  * GET /api/dashboard/gatherings/[id]
  * 특정 모임의 상세 정보 (Sheet에서 표시)
  */
-export async function GET(
+export const GET = withLogging(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -136,16 +137,16 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * PATCH /api/dashboard/gatherings/[id]
  * 모임 정보 수정 (목회자 코멘트 등)
  */
-export async function PATCH(
+export const PATCH = withLogging(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -254,4 +255,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});
