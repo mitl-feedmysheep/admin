@@ -769,7 +769,7 @@ export function MonitoringClient() {
 
       {/* Log Viewer Dialog */}
       <Dialog open={logDialogOpen} onOpenChange={setLogDialogOpen}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+        <DialogContent className="max-w-[95vw] w-full h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Terminal className="h-5 w-5" />
@@ -827,7 +827,7 @@ export function MonitoringClient() {
               <div className="text-red-400">{logError}</div>
             )}
             {!logLoading && !logError && (
-              <pre className="whitespace-pre-wrap break-all">{logContent}</pre>
+              <pre className="whitespace-pre-wrap">{logContent}</pre>
             )}
           </div>
         </DialogContent>
