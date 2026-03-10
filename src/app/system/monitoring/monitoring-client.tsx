@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -182,9 +182,14 @@ export function MonitoringClient() {
   const [logContent, setLogContent] = useState("");
   const [logLoading, setLogLoading] = useState(false);
   const [logError, setLogError] = useState("");
-  const logEndRef = useCallback((node: HTMLDivElement | null) => {
-    if (node) node.scrollTop = node.scrollHeight;
-  }, []);
+  const logContainerRef = useRef<HTMLDivElement>(null);
+
+  // 로그 로딩 완료 시 맨 아래로 스크롤
+  useEffect(() => {
+    if (!logLoading && logContent && logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logLoading, logContent]);
 
   const fetchData = useCallback(
     async (isRefresh = false) => {
@@ -815,7 +820,7 @@ export function MonitoringClient() {
           </div>
 
           <div
-            ref={logEndRef}
+            ref={logContainerRef}
             className="flex-1 overflow-auto rounded-md bg-slate-950 p-4 font-mono text-xs leading-relaxed text-green-400"
           >
             {logLoading && (
