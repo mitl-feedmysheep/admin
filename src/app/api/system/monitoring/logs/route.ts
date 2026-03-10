@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 
-const LOG_PROXY_URL = process.env.LOG_PROXY_URL || "http://container-log-proxy:3100";
+const LOG_PROXY_URL = process.env.LOG_PROXY_URL || "http://host.docker.internal:3100";
 const LOG_PROXY_SECRET = process.env.LOG_PROXY_SECRET || "";
 
 /**
