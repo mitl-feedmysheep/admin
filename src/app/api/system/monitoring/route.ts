@@ -73,7 +73,7 @@ export const GET = withLogging(async (request: NextRequest) => {
         prisma.gathering.count({
           where: {
             deleted_at: null,
-            created_at: { gte: weekStart, lte: weekEnd },
+            date: { gte: weekStart, lte: weekEnd },
           },
         }),
         prisma.prayer.count({
