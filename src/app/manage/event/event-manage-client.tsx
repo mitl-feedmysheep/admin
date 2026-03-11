@@ -23,6 +23,17 @@ function dateToTimeString(date: Date | undefined): string {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+const EVENT_COLOR_MAP: Record<string, string> = {
+  PEACOCK: "#039BE5",
+  TOMATO: "#D50000",
+  SAGE: "#33B679",
+  TANGERINE: "#F4511E",
+  LAVENDER: "#7986CB",
+  FLAMINGO: "#E67C73",
+  BANANA: "#F09300",
+  GRAPHITE: "#616161",
+};
+
 interface EventItem {
   id: string;
   title: string;
@@ -32,6 +43,7 @@ interface EventItem {
   startTime?: string;
   endTime?: string;
   location?: string;
+  color?: string;
 }
 
 export function EventManageClient() {
@@ -291,7 +303,15 @@ export function EventManageClient() {
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm sm:text-base text-slate-800 dark:text-white">{ev.title}</h4>
+                        <h4 className="font-semibold text-sm sm:text-base text-slate-800 dark:text-white flex items-center gap-1.5">
+                          {ev.color && (
+                            <span
+                              className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: EVENT_COLOR_MAP[ev.color] || "#616161" }}
+                            />
+                          )}
+                          {ev.title}
+                        </h4>
                         <div className="flex flex-wrap gap-2 sm:gap-3 mt-1 text-xs text-slate-500">
                           {(ev.startTime || ev.endTime) && (
                             <span>🕐 {ev.startTime}{ev.endTime ? ` ~ ${ev.endTime}` : ""}</span>

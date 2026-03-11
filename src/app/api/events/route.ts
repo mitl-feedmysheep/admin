@@ -46,6 +46,7 @@ export const GET = withLogging(async (request: NextRequest) => {
       startTime: e.start_time ? formatTime(e.start_time) : null,
       endTime: e.end_time ? formatTime(e.end_time) : null,
       location: e.location,
+      color: e.color,
     }));
 
     return NextResponse.json({ success: true, data: { events: data } });
@@ -78,6 +79,24 @@ export const POST = withLogging(async (request: NextRequest) => {
     }
 
     const eventId = randomUUID();
+    const COLOR_ORDER = ["PEACOCK", "TOMATO", "SAGE", "TANGERINE", "LAVENDER", "FLAMINGO", "BANANA", "GRAPHITE"];
+
+    const newStartDate = new Date(startDateStr);
+    const newEndDate = new Date(endDateStr);
+
+    // Find overlapping events for same entity to determine used colors
+    const overlapping = await prisma.event.findMany({
+      where: {
+        entity_id: session.churchId,
+        deleted_at: null,
+        start_date: { lte: newEndDate },
+        end_date: { gte: newStartDate },
+      },
+      select: { color: true },
+    });
+
+    const usedColors = new Set(overlapping.map((e) => e.color).filter(Boolean));
+    const assignedColor = COLOR_ORDER.find((c) => !usedColors.has(c)) || COLOR_ORDER[0];
 
     await prisma.$transaction(async (tx) => {
       await tx.event.create({
@@ -87,11 +106,12 @@ export const POST = withLogging(async (request: NextRequest) => {
           entity_type: "CHURCH",
           title: title.trim(),
           description: description?.trim() || null,
-          start_date: new Date(startDateStr),
-          end_date: new Date(endDateStr),
+          start_date: newStartDate,
+          end_date: newEndDate,
           start_time: startTime ? parseTime(startTime) : null,
           end_time: endTime ? parseTime(endTime) : null,
           location: location?.trim() || null,
+          color: assignedColor,
         },
       });
 
