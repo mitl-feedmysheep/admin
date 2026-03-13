@@ -52,7 +52,10 @@ export const POST = withLogging(async (request: NextRequest) => {
       },
     });
 
-    // 트랜잭션: status → ACCEPTED + 교회 멤버 추가 + activity_log
+    // 부서 배정: 요청에 지정된 부서 or 승인자의 현재 부서
+    const targetDepartmentId = joinRequest.department_id || session.departmentId;
+
+    // 트랜잭션: status → ACCEPTED + 교회 멤버 추가 + 부서 멤버 추가 + activity_log
     await prisma.$transaction(async (tx) => {
       await tx.church_member_request.update({
         where: { id: requestId },
@@ -68,6 +71,28 @@ export const POST = withLogging(async (request: NextRequest) => {
             role: "MEMBER",
           },
         });
+      }
+
+      // 부서 멤버 추가 (부서가 지정된 경우)
+      if (targetDepartmentId) {
+        const existingDeptMember = await tx.department_member.findFirst({
+          where: {
+            department_id: targetDepartmentId,
+            member_id: joinRequest.member_id,
+            deleted_at: null,
+          },
+        });
+
+        if (!existingDeptMember) {
+          await tx.department_member.create({
+            data: {
+              id: randomUUID(),
+              department_id: targetDepartmentId,
+              member_id: joinRequest.member_id,
+              role: "MEMBER",
+            },
+          });
+        }
       }
 
       await tx.activity_log.create({

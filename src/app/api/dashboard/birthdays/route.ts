@@ -16,6 +16,9 @@ export const GET = withLogging(async (request: NextRequest) => {
     }
 
     const churchId = session.churchId;
+    const isSuperAdmin = session.role === "SUPER_ADMIN";
+    const departmentId = session.departmentId;
+    const showAll = isSuperAdmin && !departmentId;
 
     const { searchParams } = new URL(request.url);
     const offset = parseInt(searchParams.get("offset") || "0");
@@ -26,29 +29,53 @@ export const GET = withLogging(async (request: NextRequest) => {
     const targetMonth = targetDate.getMonth() + 1; // 1~12
     const targetYear = targetDate.getFullYear();
 
-    // 해당 교회의 활성 멤버 조회
-    const churchMembers = await prisma.church_member.findMany({
-      where: {
-        church_id: churchId,
-        deleted_at: null,
-        member: {
+    // 해당 교회/부서의 활성 멤버 조회
+    let membersWithInfo: { member: { id: string; name: string; birthday: Date | null; sex: string | null } }[];
+
+    if (showAll) {
+      membersWithInfo = await prisma.church_member.findMany({
+        where: {
+          church_id: churchId,
           deleted_at: null,
-        },
-      },
-      include: {
-        member: {
-          select: {
-            id: true,
-            name: true,
-            birthday: true,
-            sex: true,
+          member: {
+            deleted_at: null,
           },
         },
-      },
-    });
+        include: {
+          member: {
+            select: {
+              id: true,
+              name: true,
+              birthday: true,
+              sex: true,
+            },
+          },
+        },
+      });
+    } else {
+      membersWithInfo = await prisma.department_member.findMany({
+        where: {
+          department_id: departmentId,
+          deleted_at: null,
+          member: {
+            deleted_at: null,
+          },
+        },
+        include: {
+          member: {
+            select: {
+              id: true,
+              name: true,
+              birthday: true,
+              sex: true,
+            },
+          },
+        },
+      });
+    }
 
     // 생일이 해당 월에 해당하는 멤버 필터
-    const birthdayMembers = churchMembers
+    const birthdayMembers = membersWithInfo
       .filter((cm) => {
         if (!cm.member.birthday) return false;
         const bday = new Date(cm.member.birthday);

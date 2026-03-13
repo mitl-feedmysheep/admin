@@ -21,6 +21,9 @@ const session = {
   churchId: "church-001",
   churchName: "교회",
   role: "ADMIN",
+  departmentId: "dept-001",
+  departmentName: "청년부",
+  departmentRole: "ADMIN",
   iat: 0,
   exp: 0,
 };
@@ -96,6 +99,24 @@ describe("POST /api/manage/join-requests/approve", () => {
 
     const res = await POST(approveRequest({ requestId: "req-1" }));
     expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+  });
+
+  it("creates department member when approving", async () => {
+    mockedGetSession.mockResolvedValue(session);
+    getPrismaMock("church_member_request", "findFirst").mockResolvedValue({
+      id: "req-2",
+      member_id: "m-30",
+      church_id: "church-001",
+      department_id: null,
+      status: "PENDING",
+    });
+    getPrismaMock("church_member", "findFirst").mockResolvedValue(null);
+
+    const res = await POST(approveRequest({ requestId: "req-2" }));
+    expect(res.status).toBe(200);
+
     const body = await res.json();
     expect(body.success).toBe(true);
   });

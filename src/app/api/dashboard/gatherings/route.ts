@@ -20,6 +20,9 @@ export const GET = withLogging(async (request: NextRequest) => {
     const month = parseInt(searchParams.get("month") || (new Date().getMonth() + 1).toString());
     const week = parseInt(searchParams.get("week") || "1");
     const churchId = session.churchId;
+    const isSuperAdmin = session.role === "SUPER_ADMIN";
+    const departmentId = session.departmentId;
+    const showAll = isSuperAdmin && !departmentId;
 
     console.log("=== Dashboard Gatherings API ===");
     console.log("Session churchId:", churchId);
@@ -37,6 +40,7 @@ export const GET = withLogging(async (request: NextRequest) => {
       where: {
         church_id: churchId,
         deleted_at: null,
+        department_id: showAll ? undefined : departmentId,
         start_date: { lte: endDate },
         OR: [
           { end_date: null },

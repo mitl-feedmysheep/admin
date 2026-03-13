@@ -21,15 +21,31 @@ export const POST = withLogging(async (request: NextRequest) => {
       );
     }
 
-    const church = await prisma.church.create({
-      data: {
-        id: crypto.randomUUID(),
-        name: name.trim(),
-        location: location.trim(),
-        number: number?.trim() || null,
-        homepage_url: homepageUrl?.trim() || null,
-        description: description?.trim() || null,
-      },
+    const churchId = crypto.randomUUID();
+    const departmentId = crypto.randomUUID();
+
+    const church = await prisma.$transaction(async (tx) => {
+      const created = await tx.church.create({
+        data: {
+          id: churchId,
+          name: name.trim(),
+          location: location.trim(),
+          number: number?.trim() || null,
+          homepage_url: homepageUrl?.trim() || null,
+          description: description?.trim() || null,
+        },
+      });
+
+      await tx.department.create({
+        data: {
+          id: departmentId,
+          church_id: churchId,
+          name: "전체",
+          is_default: true,
+        },
+      });
+
+      return created;
     });
 
     return NextResponse.json({

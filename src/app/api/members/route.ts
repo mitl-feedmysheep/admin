@@ -18,9 +18,12 @@ export const GET = withLogging(async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q")?.trim() || "";
     const churchId = session.churchId;
+    const isSuperAdmin = session.role === "SUPER_ADMIN";
+    const departmentId = session.departmentId;
+    const showAll = isSuperAdmin && !departmentId;
 
     console.log("=== Members Search API ===");
-    console.log("churchId:", churchId, "query:", query);
+    console.log("churchId:", churchId, "query:", query, "departmentId:", departmentId);
 
     // 검색어가 없으면 빈 배열 반환
     if (!query) {
@@ -33,11 +36,22 @@ export const GET = withLogging(async (request: NextRequest) => {
       });
     }
 
+    // 부서 필터: SUPER_ADMIN이 아니면 해당 부서 소속 멤버만 조회
+    let deptMemberIds: string[] | undefined;
+    if (!showAll && departmentId) {
+      const deptMembers = await prisma.department_member.findMany({
+        where: { department_id: departmentId, deleted_at: null },
+        select: { member_id: true },
+      });
+      deptMemberIds = deptMembers.map((dm) => dm.member_id);
+    }
+
     // 교회에 속한 멤버 검색 (church_member를 통해)
     const churchMembers = await prisma.church_member.findMany({
       where: {
         church_id: churchId,
         deleted_at: null,
+        ...(deptMemberIds ? { member_id: { in: deptMemberIds } } : {}),
         member: {
           deleted_at: null,
           OR: [
@@ -82,6 +96,7 @@ export const GET = withLogging(async (request: NextRequest) => {
         group: {
           church_id: churchId,
           deleted_at: null,
+          ...(!showAll && departmentId ? { department_id: departmentId } : {}),
         },
       },
       include: {

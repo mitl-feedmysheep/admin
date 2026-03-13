@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { getSession } from "@/lib/auth";
 import { randomUUID } from "crypto";
 import { withLogging } from "@/lib/api-logger";
 
 export const GET = withLogging(async (request: NextRequest) => {
-  const guard = await requireSuperAdmin();
-  if (!guard.ok) return guard.response;
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  }
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  const isDeptAdmin = session.departmentRole === "ADMIN";
+  if (!isSuperAdmin && !isDeptAdmin) {
+    return NextResponse.json({ error: "권한이 필요합니다." }, { status: 403 });
+  }
 
   const { searchParams } = new URL(request.url);
   const tab = searchParams.get("tab") || "my";
-  const churchId = guard.session.churchId;
-  const memberId = guard.session.memberId;
+  const churchId = session.churchId;
+  const memberId = session.memberId;
+  const departmentId = session.departmentId;
   const filter = searchParams.get("filter") || "all";
   const groupId = searchParams.get("groupId");
   const year = searchParams.get("year");
@@ -21,7 +29,8 @@ export const GET = withLogging(async (request: NextRequest) => {
     if (tab === "my") {
       return await handleMyPrayers(memberId, filter);
     } else if (tab === "group") {
-      return await handleGroupPrayers(churchId, filter, groupId, year, month);
+      const showAll = isSuperAdmin && !departmentId;
+      return await handleGroupPrayers(churchId, filter, groupId, year, month, showAll, departmentId);
     } else if (tab === "visit") {
       return await handleVisitPrayers(churchId, filter, year, month);
     }
@@ -70,6 +79,8 @@ async function handleGroupPrayers(
   groupId: string | null,
   year: string | null,
   month: string | null,
+  showAll: boolean = true,
+  departmentId?: string,
 ) {
   const prayerWhere: Record<string, unknown> = {
     deleted_at: null,
@@ -86,6 +97,7 @@ async function handleGroupPrayers(
       church_id: churchId,
       deleted_at: null,
       ...(groupId ? { id: groupId } : {}),
+      ...(!showAll && departmentId ? { department_id: departmentId } : {}),
     },
   };
 
@@ -212,8 +224,15 @@ async function handleVisitPrayers(
 }
 
 export const POST = withLogging(async (request: NextRequest) => {
-  const guard = await requireSuperAdmin();
-  if (!guard.ok) return guard.response;
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  }
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  const isDeptAdmin = session.departmentRole === "ADMIN";
+  if (!isSuperAdmin && !isDeptAdmin) {
+    return NextResponse.json({ error: "권한이 필요합니다." }, { status: 403 });
+  }
 
   try {
     const body = await request.json();
@@ -229,7 +248,7 @@ export const POST = withLogging(async (request: NextRequest) => {
     const prayer = await prisma.prayer.create({
       data: {
         id: randomUUID(),
-        member_id: guard.session.memberId,
+        member_id: session.memberId,
         prayer_request: prayerRequest.trim(),
         description: description?.trim() || null,
         is_answered: false,

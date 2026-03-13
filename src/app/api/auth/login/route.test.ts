@@ -60,14 +60,18 @@ describe("POST /api/auth/login", () => {
     expect(body.error).toContain("비밀번호");
   });
 
-  it("returns 403 when member has no ADMIN churches", async () => {
+  it("returns 403 when member has no ADMIN churches and no dept LEADER roles", async () => {
     getPrismaMock("member", "findFirst").mockResolvedValue({
       id: "m-1",
       email: "test@test.com",
       password: "$2a$10$hashedpassword",
     });
     vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
-    getPrismaMock("church_member", "findMany").mockResolvedValue([]);
+    getPrismaMock("church_member", "findMany").mockResolvedValue([
+      { church_id: "c-1", church: { id: "c-1", name: "교회" }, role: "MEMBER" },
+    ]);
+    // No department LEADER+ roles
+    getPrismaMock("department_member", "findMany").mockResolvedValue([]);
 
     const res = await POST(
       loginRequest({ email: "test@test.com", password: "correct" })
@@ -87,14 +91,18 @@ describe("POST /api/auth/login", () => {
     vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
     getPrismaMock("church_member", "findMany").mockResolvedValue([
       {
+        church_id: "c-1",
         church: { id: "c-1", name: "제일교회" },
         role: "ADMIN",
       },
       {
+        church_id: "c-2",
         church: { id: "c-2", name: "은혜교회" },
         role: "SUPER_ADMIN",
       },
     ]);
+    // No department LEADER+ roles (not needed since church roles suffice)
+    getPrismaMock("department_member", "findMany").mockResolvedValue([]);
 
     const res = await POST(
       loginRequest({ email: "test@test.com", password: "correct" })

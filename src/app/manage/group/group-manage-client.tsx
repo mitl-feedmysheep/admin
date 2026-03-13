@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { UsersRound, UserCog, Plus, Check, Search, UserMinus, X, Loader2, Trash2, CalendarIcon, Pencil } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog, ConfirmDialogVariant } from "@/components/confirm-dialog";
+import { ContactAdminDialog } from "@/components/contact-admin-dialog";
 
 // 소그룹 타입
 interface Group {
@@ -70,6 +70,7 @@ export function GroupManageClient() {
   const [groupYearFilter, setGroupYearFilter] = useState(String(new Date().getFullYear()));
   const [groupCreateMessage, setGroupCreateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [groupDeleteDialogOpen, setGroupDeleteDialogOpen] = useState(false);
+  const [deletingGroupName, setDeletingGroupName] = useState("");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
   const [isSavingGroupName, setIsSavingGroupName] = useState(false);
@@ -96,6 +97,8 @@ export function GroupManageClient() {
   >([]);
   const [removeGroupLoading, setRemoveGroupLoading] = useState(false);
   const [memberRemoveDialogOpen, setMemberRemoveDialogOpen] = useState(false);
+  const [removingMemberName, setRemovingMemberName] = useState("");
+  const [removingFromGroupName, setRemovingFromGroupName] = useState("");
 
   // 멤버 검색 (API 호출, 디바운스)
   useEffect(() => {
@@ -443,7 +446,7 @@ export function GroupManageClient() {
                     </div>
                   )}
                   <div className="flex justify-end">
-                    <Button type="submit" className="gap-2 bg-slate-800 hover:bg-slate-700" disabled={isCreatingGroup || !groupForm.name.trim()}>
+                    <Button type="submit" className="gap-2 bg-slate-800 hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500" disabled={isCreatingGroup || !groupForm.name.trim()}>
                       {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                       {isCreatingGroup ? "생성 중..." : "소그룹 생성"}
                     </Button>
@@ -511,7 +514,7 @@ export function GroupManageClient() {
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
                             )}
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => setGroupDeleteDialogOpen(true)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => { setDeletingGroupName(group.name); setGroupDeleteDialogOpen(true); }}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
@@ -625,7 +628,7 @@ export function GroupManageClient() {
                       </Select>
                     </div>
                     <div className="flex items-end sm:col-span-2 md:col-span-1">
-                      <Button onClick={handleAssignMembers} className="w-full gap-2 bg-slate-800 hover:bg-slate-700" disabled={selectedMembers.length === 0 || !selectedGroup || !selectedRole || isAssigning}>
+                      <Button onClick={handleAssignMembers} className="w-full gap-2 bg-slate-800 hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500" disabled={selectedMembers.length === 0 || !selectedGroup || !selectedRole || isAssigning}>
                         {isAssigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCog className="h-4 w-4" />}
                         {isAssigning ? "할당 중..." : `멤버 할당 (${selectedMembers.length}명)`}
                       </Button>
@@ -731,10 +734,10 @@ export function GroupManageClient() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Badge className={member.role === "LEADER" ? "bg-slate-800 text-white" : member.role === "SUB_LEADER" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}>
+                                <Badge className={member.role === "LEADER" ? "bg-slate-800 text-white dark:bg-indigo-600" : member.role === "SUB_LEADER" ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"}>
                                   {member.role === "LEADER" ? "리더" : member.role === "SUB_LEADER" ? "서브리더" : "멤버"}
                                 </Badge>
-                                <Button variant="ghost" size="sm" onClick={() => setMemberRemoveDialogOpen(true)} className="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                <Button variant="ghost" size="sm" onClick={() => { setRemovingMemberName(member.name); setRemovingFromGroupName(groups.find(g => g.id === removeGroupFilter)?.name || ""); setMemberRemoveDialogOpen(true); }} className="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
                                   <UserMinus className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -751,39 +754,29 @@ export function GroupManageClient() {
         </TabsContent>
       </Tabs>
 
-      {/* 소그룹 삭제 안내 다이얼로그 */}
-      <Dialog open={groupDeleteDialogOpen} onOpenChange={setGroupDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-[360px]">
-          <DialogHeader>
-            <DialogTitle>소그룹 삭제</DialogTitle>
-            <DialogDescription>소그룹 삭제는 직접 처리할 수 없습니다.</DialogDescription>
-          </DialogHeader>
-          <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
-            <p>관리자에게 문의해주세요.</p>
-            <p className="text-slate-500">kcs19542001@gmail.com</p>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setGroupDeleteDialogOpen(false)}>확인</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 소그룹 삭제 — 관리자에게 요청 */}
+      <ContactAdminDialog
+        open={groupDeleteDialogOpen}
+        onOpenChange={setGroupDeleteDialogOpen}
+        title="소그룹 삭제 요청"
+        description="소그룹 삭제는 직접 처리할 수 없습니다. 관리자에게 요청을 보내주세요."
+        requestTitle="소그룹 삭제 요청"
+        entityType="소그룹"
+        entityName={deletingGroupName}
+        placeholder="삭제 사유를 입력해주세요"
+      />
 
-      {/* 소그룹 멤버 제외 안내 다이얼로그 */}
-      <Dialog open={memberRemoveDialogOpen} onOpenChange={setMemberRemoveDialogOpen}>
-        <DialogContent className="sm:max-w-[360px]">
-          <DialogHeader>
-            <DialogTitle>멤버 제외</DialogTitle>
-            <DialogDescription>멤버 제외는 직접 처리할 수 없습니다.</DialogDescription>
-          </DialogHeader>
-          <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
-            <p>관리자에게 문의해주세요.</p>
-            <p className="text-slate-500">kcs19542001@gmail.com</p>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setMemberRemoveDialogOpen(false)}>확인</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 소그룹 멤버 제외 — 관리자에게 요청 */}
+      <ContactAdminDialog
+        open={memberRemoveDialogOpen}
+        onOpenChange={setMemberRemoveDialogOpen}
+        title="멤버 제외 요청"
+        description="멤버 제외는 직접 처리할 수 없습니다. 관리자에게 요청을 보내주세요."
+        requestTitle="소그룹 멤버 제외 요청"
+        entityType="소그룹"
+        entityName={removingFromGroupName ? `${removingFromGroupName} > ${removingMemberName}` : removingMemberName}
+        placeholder="제외 사유를 입력해주세요"
+      />
 
       <ConfirmDialog
         open={dialogState.open}

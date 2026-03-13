@@ -55,12 +55,32 @@ describe("POST /api/auth/select-church", () => {
     expect(body.error).toContain("존재하지 않는");
   });
 
-  it("returns 403 when member is not admin of the church", async () => {
+  it("returns 403 when member is not a church member", async () => {
     getPrismaMock("member", "findUnique").mockResolvedValue({
       id: "m-1",
       name: "테스트",
     });
     getPrismaMock("church_member", "findFirst").mockResolvedValue(null);
+
+    const res = await POST(
+      selectChurchRequest({ memberId: "m-1", churchId: "c-1" })
+    );
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toContain("멤버가 아닙니다");
+  });
+
+  it("returns 403 when member has no admin/department access", async () => {
+    getPrismaMock("member", "findUnique").mockResolvedValue({
+      id: "m-1",
+      name: "일반멤버",
+    });
+    getPrismaMock("church_member", "findFirst").mockResolvedValue({
+      role: "MEMBER",
+      church: { id: "c-1", name: "교회" },
+    });
+    // No department LEADER+ roles
+    getPrismaMock("department_member", "findMany").mockResolvedValue([]);
 
     const res = await POST(
       selectChurchRequest({ memberId: "m-1", churchId: "c-1" })
@@ -79,6 +99,16 @@ describe("POST /api/auth/select-church", () => {
       role: "ADMIN",
       church: { id: "c-1", name: "교회" },
     });
+    // Department queries for non-SUPER_ADMIN
+    getPrismaMock("department_member", "findMany").mockResolvedValue([
+      {
+        role: "LEADER",
+        department: { id: "dept-1", name: "청년부" },
+      },
+    ]);
+    getPrismaMock("department_member", "findFirst").mockResolvedValue({
+      role: "LEADER",
+    });
 
     const res = await POST(
       selectChurchRequest({ memberId: "m-1", churchId: "c-1" })
@@ -87,6 +117,7 @@ describe("POST /api/auth/select-church", () => {
 
     const body = await res.json();
     expect(body.success).toBe(true);
+    expect(body.selectedDepartmentId).toBe("dept-1");
   });
 
   it("extracts memberId from session cookie when not in body", async () => {
@@ -107,6 +138,16 @@ describe("POST /api/auth/select-church", () => {
     getPrismaMock("church_member", "findFirst").mockResolvedValue({
       role: "ADMIN",
       church: { id: "c-2", name: "새교회" },
+    });
+    // Department queries for non-SUPER_ADMIN
+    getPrismaMock("department_member", "findMany").mockResolvedValue([
+      {
+        role: "ADMIN",
+        department: { id: "dept-2", name: "장년부" },
+      },
+    ]);
+    getPrismaMock("department_member", "findFirst").mockResolvedValue({
+      role: "ADMIN",
     });
 
     const req = selectChurchRequest({ churchId: "c-2" }, "existing-token");

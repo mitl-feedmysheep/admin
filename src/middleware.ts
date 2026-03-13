@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import { hasPermissionOver } from "@/lib/roles";
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "fallback-secret-change-in-production"
@@ -11,7 +10,11 @@ const protectedRoutes = ["/dashboard", "/members", "/groups", "/manage", "/syste
 
 const authRoutes = ["/login"];
 
-const superAdminRoutes = ["/manage/visit", "/manage/prayer"];
+// 심방/기도제목: dept ADMIN+ OR church SUPER_ADMIN
+const visitPrayerRoutes = ["/manage/visit", "/manage/prayer"];
+
+// 부서 설정: church SUPER_ADMIN only
+const superAdminRoutes = ["/manage/departments"];
 
 const systemAdminRoutes = ["/system/church", "/system/monitoring"];
 
@@ -26,6 +29,7 @@ export async function middleware(request: NextRequest) {
   let isAuthenticated = false;
   let role: string | undefined;
   let memberId: string | undefined;
+  let departmentRole: string | undefined;
 
   if (token) {
     try {
@@ -33,6 +37,7 @@ export async function middleware(request: NextRequest) {
       isAuthenticated = true;
       role = payload.role as string | undefined;
       memberId = payload.memberId as string | undefined;
+      departmentRole = payload.departmentRole as string | undefined;
     } catch {
       isAuthenticated = false;
     }
@@ -46,11 +51,25 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  // 심방/기도제목: church SUPER_ADMIN OR dept ADMIN+
+  const isVisitPrayerRoute = visitPrayerRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+
+  if (isVisitPrayerRoute) {
+    const isSuperAdmin = role === "SUPER_ADMIN";
+    const isDeptAdmin = departmentRole === "ADMIN";
+    if (!isSuperAdmin && !isDeptAdmin) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  }
+
+  // 부서 설정: church SUPER_ADMIN only
   const isSuperAdminRoute = superAdminRoutes.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
 
-  if (isSuperAdminRoute && (!role || !hasPermissionOver(role, "SUPER_ADMIN"))) {
+  if (isSuperAdminRoute && role !== "SUPER_ADMIN") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

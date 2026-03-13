@@ -22,6 +22,8 @@ interface JoinRequest {
   sex: string;
   birthday: string;
   phone: string;
+  departmentId: string | null;
+  departmentName: string | null;
   requestedAt: string;
 }
 
@@ -34,6 +36,8 @@ interface JoinRequestHistory {
   sex: string;
   birthday: string;
   phone: string;
+  departmentId: string | null;
+  departmentName: string | null;
   status: "ACCEPTED" | "DECLINED";
   completedBy: string;
   requestedAt: string;
@@ -304,9 +308,9 @@ export function ChurchManageClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">교회 관리</h1>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">가입 관리</h1>
         <p className="text-slate-500 dark:text-slate-400">
-          교회 편입 및 계정을 관리합니다
+          교회 가입 및 계정을 관리합니다
         </p>
       </div>
 
@@ -370,7 +374,7 @@ export function ChurchManageClient() {
                     <Button variant="outline" className="gap-2" onClick={handleCopyCredentials}>
                       {copied ? (<><Check className="h-4 w-4 text-emerald-500" />복사됨</>) : (<><Copy className="h-4 w-4" />복사</>)}
                     </Button>
-                    <Button className="gap-2 bg-slate-800 hover:bg-slate-700" onClick={handleResetAccountForm}>
+                    <Button className="gap-2 bg-slate-800 hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500" onClick={handleResetAccountForm}>
                       <Plus className="h-4 w-4" />새 계정 생성
                     </Button>
                   </div>
@@ -495,7 +499,7 @@ export function ChurchManageClient() {
                     <Textarea id="description" value={accountForm.description} onChange={(e) => setAccountForm({ ...accountForm, description: e.target.value })} placeholder="추가 정보를 입력하세요" className="min-h-[80px]" />
                   </div>
                   <div className="flex justify-end">
-                    <Button type="submit" className="gap-2 bg-slate-800 hover:bg-slate-700" disabled={!isFormValid || isCreating}>
+                    <Button type="submit" className="gap-2 bg-slate-800 hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500" disabled={!isFormValid || isCreating}>
                       <UserPlus className="h-4 w-4" />
                       {isCreating ? "생성 중..." : "계정 생성 및 편입"}
                     </Button>
@@ -550,9 +554,12 @@ export function ChurchManageClient() {
                             <div className="flex items-start gap-3 sm:gap-4">
                               <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-base sm:text-lg font-medium shrink-0">{request.name.charAt(0)}</div>
                               <div className="min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <p className="font-semibold text-slate-900 dark:text-white">{request.name}</p>
                                   <Badge variant="outline" className="text-xs">{request.sex === "MALE" ? "남성" : "여성"}</Badge>
+                                  {request.departmentName && (
+                                    <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 text-xs">{request.departmentName}</Badge>
+                                  )}
                                 </div>
                                 <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-500">
                                   <div className="flex items-center gap-1.5"><span className="text-slate-400">생년월일</span><span>{formatBirthday(request.birthday)}</span></div>
@@ -602,6 +609,9 @@ export function ChurchManageClient() {
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="font-semibold text-slate-900 dark:text-white">{record.name}</p>
                                 <Badge variant="outline" className="text-xs">{record.sex === "MALE" ? "남성" : "여성"}</Badge>
+                                {record.departmentName && (
+                                  <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 text-xs">{record.departmentName}</Badge>
+                                )}
                                 {record.status === "ACCEPTED" ? (
                                   <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs">승인</Badge>
                                 ) : (

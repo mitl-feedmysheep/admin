@@ -21,7 +21,7 @@ export const POST = withLogging(async (request: NextRequest) => {
       );
     }
 
-    if (!["SUPER_ADMIN", "ADMIN"].includes(role)) {
+    if (!["SUPER_ADMIN", "ADMIN", "MEMBER"].includes(role)) {
       return NextResponse.json(
         { error: "유효하지 않은 권한입니다." },
         { status: 400 }
@@ -62,10 +62,21 @@ export const POST = withLogging(async (request: NextRequest) => {
     });
 
     if (existing) {
-      return NextResponse.json(
-        { error: "이미 해당 교회에 등록된 멤버입니다." },
-        { status: 409 }
-      );
+      // 이미 교회 멤버면 권한 업데이트
+      const updated = await prisma.church_member.update({
+        where: { id: existing.id },
+        data: { role },
+      });
+
+      return NextResponse.json({
+        churchMember: {
+          id: updated.id,
+          churchId: updated.church_id,
+          memberId: updated.member_id,
+          role: updated.role,
+        },
+        updated: true,
+      });
     }
 
     // church_member 생성

@@ -27,6 +27,7 @@ model member {
   deleted_at                          DateTime?               @db.DateTime(0)
   church_members                      church_member[]
   church_member_requests              church_member_request[]
+  department_members                  department_member[]
   group_members                       group_member[]
   message_message_receiver_idTomember message[]               @relation("message_receiver_idTomember")
   message_message_sender_idTomember   message[]               @relation("message_sender_idTomember")
@@ -46,6 +47,7 @@ model church {
   deleted_at             DateTime?               @db.DateTime(0)
   church_members         church_member[]
   church_member_requests church_member_request[]
+  departments            department[]
   groups                 group[]
   visit                  visit[]
 }
@@ -70,6 +72,7 @@ model church_member {
 model group {
   id                 String             @id @db.Char(36)
   church_id          String             @db.Char(36)
+  department_id      String?            @db.Char(36)
   type               String             @default("NORMAL") @db.VarChar(20)
   name               String             @db.VarChar(50)
   description        String?            @db.VarChar(100)
@@ -81,9 +84,11 @@ model group {
   education_programs education_program?
   gatherings         gathering[]
   church             church             @relation(fields: [church_id], references: [id])
+  department         department?        @relation(fields: [department_id], references: [id])
   group_members      group_member[]
 
   @@index([church_id, deleted_at], map: "idx_group_church_deleted")
+  @@index([department_id, deleted_at], map: "idx_group_department_deleted")
   @@map("group")
 }
 
@@ -252,11 +257,11 @@ model activity_log {
 
 /// 캘린더 이벤트
 model event {
-  id          String    @id @db.Char(36)
-  entity_id   String    @db.Char(36)
-  entity_type String    @db.VarChar(20)
-  title       String    @db.VarChar(100)
-  description String?   @db.VarChar(500)
+  id            String    @id @db.Char(36)
+  entity_id     String    @db.Char(36)
+  entity_type   String    @db.VarChar(20)
+  title         String    @db.VarChar(100)
+  description   String?   @db.VarChar(500)
   start_date  DateTime  @db.Date
   end_date    DateTime  @db.Date
   start_time  DateTime? @db.Time(0)
@@ -304,15 +309,17 @@ model education_progress {
 
 /// 교회 멤버 편입 요청
 model church_member_request {
-  id         String    @id @db.Char(36)
-  member_id  String    @db.Char(36)
-  church_id  String    @db.Char(36)
-  status     String    @default("PENDING") @db.VarChar(20)
-  created_at DateTime  @default(now()) @db.DateTime(6)
-  updated_at DateTime  @default(now()) @db.DateTime(6)
-  deleted_at DateTime? @db.DateTime(6)
-  church     church    @relation(fields: [church_id], references: [id])
-  member     member    @relation(fields: [member_id], references: [id])
+  id            String      @id @db.Char(36)
+  member_id     String      @db.Char(36)
+  church_id     String      @db.Char(36)
+  department_id String?     @db.Char(36)
+  status        String      @default("PENDING") @db.VarChar(20)
+  created_at    DateTime    @default(now()) @db.DateTime(6)
+  updated_at    DateTime    @default(now()) @db.DateTime(6)
+  deleted_at    DateTime?   @db.DateTime(6)
+  church        church      @relation(fields: [church_id], references: [id])
+  department    department? @relation(fields: [department_id], references: [id])
+  member        member      @relation(fields: [member_id], references: [id])
 
   @@index([church_id])
   @@index([member_id], map: "church_member_request_member_id_fkey")
@@ -393,4 +400,41 @@ model metrics {
 
   @@index([collected_at(sort: Desc)], map: "idx_metrics_collected")
   @@index([container_name, collected_at(sort: Desc)], map: "idx_metrics_container_time")
+}
+
+/// 부서
+model department {
+  id                     String                  @id @db.Char(36)
+  church_id              String                  @db.Char(36)
+  name                   String                  @db.VarChar(50)
+  description            String?                 @db.VarChar(200)
+  is_default             Boolean                 @default(false)
+  created_at             DateTime                @default(now()) @db.DateTime(0)
+  updated_at             DateTime?               @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at             DateTime?               @db.DateTime(0)
+  church                 church                  @relation(fields: [church_id], references: [id])
+  department_members     department_member[]
+  groups                 group[]
+  church_member_requests church_member_request[]
+
+  @@index([church_id, deleted_at], map: "idx_department_church_deleted")
+  @@unique([church_id, name, deleted_at], map: "uk_department_church_name")
+}
+
+/// 부서 멤버
+model department_member {
+  id            String     @id @db.Char(36)
+  department_id String     @db.Char(36)
+  member_id     String     @db.Char(36)
+  role          String     @default("MEMBER") @db.VarChar(20)
+  status        String     @default("ACTIVE") @db.VarChar(20)
+  created_at    DateTime   @default(now()) @db.DateTime(0)
+  updated_at    DateTime?  @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at    DateTime?  @db.DateTime(0)
+  department    department @relation(fields: [department_id], references: [id])
+  member        member     @relation(fields: [member_id], references: [id])
+
+  @@index([department_id, deleted_at], map: "idx_dm_department_deleted")
+  @@index([member_id], map: "idx_dm_member")
+  @@unique([department_id, member_id, deleted_at], map: "uk_dm_dept_member")
 }
