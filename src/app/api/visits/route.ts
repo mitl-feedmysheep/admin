@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { requireDepartmentAdmin } from "@/lib/require-department-admin";
 import { randomUUID } from "crypto";
 import { withLogging } from "@/lib/api-logger";
 
 export const GET = withLogging(async (request: NextRequest) => {
-  const guard = await requireSuperAdmin();
+  const guard = await requireDepartmentAdmin();
   if (!guard.ok) return guard.response;
 
   const { searchParams } = new URL(request.url);
@@ -33,6 +33,10 @@ export const GET = withLogging(async (request: NextRequest) => {
       const m = parseInt(month);
       dateFilter.gte = new Date(y, m - 1, 1);
       dateFilter.lt = new Date(y, m, 1);
+    } else if (year) {
+      const y = parseInt(year);
+      dateFilter.gte = new Date(y, 0, 1);
+      dateFilter.lt = new Date(y + 1, 0, 1);
     }
 
     const visits = await prisma.visit.findMany({
@@ -83,7 +87,7 @@ export const GET = withLogging(async (request: NextRequest) => {
 });
 
 export const POST = withLogging(async (request: NextRequest) => {
-  const guard = await requireSuperAdmin();
+  const guard = await requireDepartmentAdmin();
   if (!guard.ok) return guard.response;
 
   const churchId = guard.session.churchId;

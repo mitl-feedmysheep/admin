@@ -25,15 +25,14 @@ import {
 import { canAccessVisitPrayer } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-const navigation: ({ type: "link"; name: string; href: string; icon: typeof LayoutDashboard } | { type: "divider" })[] = [
+const navigation: NavItem[] = [
   { type: "link", name: "대시보드", href: "/dashboard", icon: LayoutDashboard },
   { type: "divider" },
   { type: "link", name: "교적부", href: "/members", icon: Users },
   { type: "divider" },
   { type: "link", name: "교회 관리", href: "/manage/church", icon: Church },
-  { type: "link", name: "부서 관리", href: "/manage/departments", icon: Building2 },
   { type: "link", name: "소그룹 관리", href: "/manage/group", icon: UsersRound },
   { type: "link", name: "멤버 관리", href: "/manage/member", icon: Users },
   { type: "link", name: "새가족 관리", href: "/manage/newcomer", icon: GraduationCap },
@@ -48,7 +47,9 @@ const visitPrayerNavigation: NavItem[] = [
   { type: "link", name: "기도제목 관리", href: "/manage/prayer", icon: BookOpen },
 ];
 
-const superAdminNavigation: NavItem[] = [];
+const superAdminNavigation: NavItem[] = [
+  { type: "link", name: "부서 관리", href: "/manage/departments", icon: Building2 },
+];
 
 interface AdminChurch {
   churchId: string;
@@ -191,6 +192,28 @@ export function Sidebar({
     void loadDepartments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deptSwitcherOpen]);
+
+  // 편입 요청 대기 수
+  const [pendingJoinCount, setPendingJoinCount] = useState(0);
+
+  const fetchPendingJoinCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/manage/join-requests");
+      const data = await res.json();
+      console.log("[Sidebar] join-requests response:", res.status, data);
+      if (res.ok && data.success) {
+        setPendingJoinCount(data.data.requests.length);
+      }
+    } catch (err) {
+      console.error("[Sidebar] join-requests fetch error:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    console.log("[Sidebar] mount - fetching pending join count");
+    fetchPendingJoinCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Build navigation based on permissions
   const showVisitPrayer = canAccessVisitPrayer(role ?? "", departmentRole);
@@ -357,9 +380,10 @@ export function Sidebar({
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {[
-          ...navigation,
-          ...(showVisitPrayer ? visitPrayerNavigation : []),
+          ...navigation.slice(0, navigation.findIndex(n => n.type === "link" && n.href === "/manage/group")),
           ...(isSuperAdmin ? superAdminNavigation : []),
+          ...navigation.slice(navigation.findIndex(n => n.type === "link" && n.href === "/manage/group")),
+          ...(showVisitPrayer ? visitPrayerNavigation : []),
         ].map((item, index) => {
           if (item.type === "divider") {
             return <div key={`divider-${index}`} className="my-2 border-t border-slate-700/50" />;
@@ -379,6 +403,11 @@ export function Sidebar({
             >
               <item.icon className="h-5 w-5" />
               {item.name}
+              {item.href === "/manage/church" && pendingJoinCount > 0 && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-medium text-white">
+                  {pendingJoinCount}
+                </span>
+              )}
             </Link>
           );
         })}

@@ -225,6 +225,7 @@ export function ChurchManageClient() {
       baptized: "",
       mbti: "",
       description: "",
+      departmentId: "",
     });
   };
 
@@ -451,7 +452,7 @@ export function ChurchManageClient() {
                     </div>
                     <div className="space-y-2 min-w-0">
                       <Label htmlFor="birthday">생년월일 <span className="text-red-500">*</span></Label>
-                      <Input id="birthday" type="date" value={accountForm.birthday} onChange={(e) => setAccountForm({ ...accountForm, birthday: e.target.value })} required />
+                      <Input id="birthday" type="date" min="1900-01-01" max={new Date().toISOString().split("T")[0]} value={accountForm.birthday} onChange={(e) => setAccountForm({ ...accountForm, birthday: e.target.value })} required />
                     </div>
                     <div className="space-y-2 min-w-0">
                       <Label htmlFor="phone">휴대폰번호 <span className="text-red-500">*</span></Label>

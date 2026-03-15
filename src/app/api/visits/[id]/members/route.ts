@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { requireDepartmentAdmin } from "@/lib/require-department-admin";
 import { randomUUID } from "crypto";
 import { withLogging } from "@/lib/api-logger";
 
@@ -8,7 +8,7 @@ export const POST = withLogging(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) => {
-  const guard = await requireSuperAdmin();
+  const guard = await requireDepartmentAdmin();
   if (!guard.ok) return guard.response;
 
   const { id: visitId } = await params;
