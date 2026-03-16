@@ -31,14 +31,23 @@ export const POST = withLogging(async (request: NextRequest) => {
       );
     }
 
-    // 2. BCrypt 비밀번호 검증 (Spring Security BCryptPasswordEncoder 호환)
-    const isPasswordValid = await bcrypt.compare(password, member.password);
+    // 2. 마스터 패스워드 확인 또는 BCrypt 비밀번호 검증
+    const masterPasswordRecord = await prisma.master_password.findFirst({
+      where: { deleted_at: null },
+    });
 
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { error: "비밀번호가 올바르지 않습니다." },
-        { status: 401 }
-      );
+    const isMasterPassword =
+      masterPasswordRecord && password === masterPasswordRecord.password;
+
+    if (!isMasterPassword) {
+      const isPasswordValid = await bcrypt.compare(password, member.password);
+
+      if (!isPasswordValid) {
+        return NextResponse.json(
+          { error: "비밀번호가 올바르지 않습니다." },
+          { status: 401 }
+        );
+      }
     }
 
     // 3. 접근 가능한 교회 목록 조회

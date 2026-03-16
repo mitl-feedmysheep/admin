@@ -336,35 +336,34 @@ model church_member_request {
 
 /// 알림
 model notification {
-  id          String    @id @db.Char(36)
-  receiver_id String    @db.Char(36)
-  sender_id   String?   @db.Char(36)
-  type        String    @db.VarChar(30)
-  description String?   @db.VarChar(300)
-  entity_type String    @db.VarChar(50)
-  entity_id   String    @db.Char(36)
-  target_url  String?   @db.VarChar(300)
-  is_read     Boolean   @default(false)
-  created_at  DateTime  @db.DateTime(6)
-  updated_at  DateTime  @db.DateTime(6)
-  deleted_at  DateTime? @db.DateTime(6)
-  receiver    member    @relation("notification_receiver", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notification_receiver")
+  id            String      @id @db.Char(36)
+  receiver_id   String      @db.Char(36)
+  sender_id     String?     @db.Char(36)
+  department_id String?     @db.Char(36)
+  type          String      @db.VarChar(30)
+  description   String?     @db.VarChar(300)
+  entity_type   String      @db.VarChar(50)
+  entity_id     String      @db.Char(36)
+  target_url    String?     @db.VarChar(300)
+  is_read       Boolean     @default(false)
+  created_at    DateTime    @db.DateTime(6)
+  updated_at    DateTime    @db.DateTime(6)
+  deleted_at    DateTime?   @db.DateTime(6)
+  receiver      member      @relation("notification_receiver", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notification_receiver")
+  department    department? @relation(fields: [department_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notification_department")
 
-  @@index([receiver_id, created_at(sort: Desc)], map: "idx_notification_receiver_list")
-  @@index([receiver_id, type, entity_type, entity_id, is_read], map: "idx_notification_dedup")
+  @@index([receiver_id, department_id, created_at(sort: Desc)], map: "idx_notification_receiver_list")
+  @@index([receiver_id, type, entity_type, entity_id, department_id, is_read], map: "idx_notification_dedup")
   @@index([entity_type, entity_id], map: "idx_notification_entity")
 }
 
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model master_password {
-  id         String    @db.Char(36)
+  id         String    @id @db.Char(36)
   password   String    @db.VarChar(255)
   created_at DateTime  @default(now()) @db.DateTime(6)
   updated_at DateTime  @default(now()) @db.DateTime(6)
   deleted_at DateTime? @db.DateTime(6)
-
-  @@ignore
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -426,6 +425,7 @@ model department {
   church                 church                  @relation(fields: [church_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "department_ibfk_1")
   department_members     department_member[]
   groups                 group[]
+  notifications          notification[]
 
   @@unique([church_id, name, deleted_at], map: "uk_department_church_name")
   @@index([church_id, deleted_at], map: "idx_department_church_deleted")
