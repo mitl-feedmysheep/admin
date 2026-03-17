@@ -18,7 +18,9 @@ RUN npx prisma generate
 COPY . .
 
 # Build with cache mount (Next 빌드 캐시 재사용)
+# 빌드 시 Prisma Client가 datasource URL을 요구하므로 더미값 제공
 RUN --mount=type=cache,target=/app/.next/cache \
+    DATABASE_URL="mysql://dummy:dummy@localhost:3306/dummy" \
     npm run build
 
 # Production stage
