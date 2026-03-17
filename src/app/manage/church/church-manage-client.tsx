@@ -225,7 +225,6 @@ export function ChurchManageClient() {
       baptized: "",
       mbti: "",
       description: "",
-      departmentId: "",
     });
   };
 
