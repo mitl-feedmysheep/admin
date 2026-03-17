@@ -434,27 +434,30 @@ function EditMemberInfoTab() {
 }
 
 function ResetPasswordTab() {
-  const [email, setEmail] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [searchedMember, setSearchedMember] = useState<SearchedMember | null>(null);
+  const [searchResults, setSearchResults] = useState<SearchedMember[]>([]);
+  const [selectedMember, setSelectedMember] = useState<SearchedMember | null>(null);
   const [searchError, setSearchError] = useState("");
 
   const [newPassword, setNewPassword] = useState("");
   const [isResetting, setIsResetting] = useState(false);
 
   const handleSearch = async () => {
-    if (!email.trim()) {
-      toast.error("이메일을 입력해주세요.");
+    if (!searchQuery.trim()) {
+      toast.error("이름, 이메일 또는 전화번호를 입력해주세요.");
       return;
     }
 
     setIsSearching(true);
-    setSearchedMember(null);
+    setSearchResults([]);
+    setSelectedMember(null);
     setSearchError("");
+    setNewPassword("");
 
     try {
       const res = await fetch(
-        `/api/system/search-church-member?email=${encodeURIComponent(email.trim())}`
+        `/api/system/search-church-member?q=${encodeURIComponent(searchQuery.trim())}`
       );
       const data = await res.json();
 
@@ -463,7 +466,7 @@ function ResetPasswordTab() {
         return;
       }
 
-      setSearchedMember(data.member);
+      setSearchResults(data.members as SearchedMember[]);
     } catch {
       setSearchError("검색 중 오류가 발생했습니다.");
     } finally {
@@ -472,7 +475,7 @@ function ResetPasswordTab() {
   };
 
   const handleReset = async () => {
-    if (!searchedMember || !newPassword) {
+    if (!selectedMember || !newPassword) {
       toast.error("멤버와 새 비밀번호를 입력해주세요.");
       return;
     }
@@ -488,7 +491,7 @@ function ResetPasswordTab() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          targetMemberId: searchedMember.memberId,
+          targetMemberId: selectedMember.memberId,
           newPassword,
         }),
       });
@@ -500,9 +503,10 @@ function ResetPasswordTab() {
         return;
       }
 
-      toast.success(`${searchedMember.name}님의 비밀번호가 초기화되었습니다.`);
-      setSearchedMember(null);
-      setEmail("");
+      toast.success(`${selectedMember.name}님의 비밀번호가 초기화되었습니다.`);
+      setSelectedMember(null);
+      setSearchResults([]);
+      setSearchQuery("");
       setNewPassword("");
     } catch {
       toast.error("비밀번호 초기화 중 오류가 발생했습니다.");
@@ -522,14 +526,14 @@ function ResetPasswordTab() {
       </CardHeader>
       <CardContent>
         <div className="space-y-6 max-w-lg">
-          {/* 이메일 검색 */}
+          {/* 검색 */}
           <div className="space-y-2">
-            <Label>이메일로 유저 검색</Label>
+            <Label>이름, 이메일 또는 전화번호로 검색</Label>
             <div className="flex gap-2">
               <Input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="example@email.com"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="이름, 이메일 또는 전화번호"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -555,20 +559,56 @@ function ResetPasswordTab() {
               <p className="text-sm text-red-500">{searchError}</p>
             )}
 
-            {searchedMember && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
-                <p className="text-sm font-medium text-slate-900 dark:text-white">
-                  {searchedMember.name}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {searchedMember.email}
-                </p>
+            {/* 검색 결과 목록 */}
+            {searchResults.length > 0 && !selectedMember && (
+              <div className="space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800">
+                {searchResults.map((m) => (
+                  <button
+                    key={m.memberId}
+                    type="button"
+                    onClick={() => setSelectedMember(m)}
+                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-slate-200 dark:hover:bg-slate-700"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-900 dark:text-white">{m.name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {m.phone}{m.email ? ` · ${m.email}` : ""}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 선택된 멤버 */}
+            {selectedMember && (
+              <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                    {selectedMember.name}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {selectedMember.phone}{selectedMember.email ? ` · ${selectedMember.email}` : ""}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedMember(null);
+                    setNewPassword("");
+                  }}
+                  className="text-xs text-slate-500"
+                >
+                  다시 검색
+                </Button>
               </div>
             )}
           </div>
 
           {/* 새 비밀번호 */}
-          {searchedMember && (
+          {selectedMember && (
             <div className="space-y-2">
               <Label htmlFor="new-password">새 비밀번호</Label>
               <Input
@@ -587,7 +627,7 @@ function ResetPasswordTab() {
           )}
 
           {/* 초기화 버튼 */}
-          {searchedMember && (
+          {selectedMember && (
             <div className="flex justify-end">
               <Button
                 onClick={handleReset}

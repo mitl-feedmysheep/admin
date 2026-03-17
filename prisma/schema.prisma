@@ -27,11 +27,15 @@ model member {
   deleted_at                          DateTime?               @db.DateTime(0)
   church_members                      church_member[]
   church_member_requests              church_member_request[]
+  department_members                  department_member[]
   group_members                       group_member[]
   message_message_receiver_idTomember message[]               @relation("message_receiver_idTomember")
   message_message_sender_idTomember   message[]               @relation("message_sender_idTomember")
   notifications                       notification[]          @relation("notification_receiver")
   prayers                             prayer[]
+  sermon_note                         sermon_note[]
+
+  @@index([phone, deleted_at], map: "idx_member_phone")
 }
 
 model church {
@@ -46,6 +50,7 @@ model church {
   deleted_at             DateTime?               @db.DateTime(0)
   church_members         church_member[]
   church_member_requests church_member_request[]
+  departments            department[]
   groups                 group[]
   visit                  visit[]
 }
@@ -64,12 +69,14 @@ model church_member {
   visit_member visit_member[]
 
   @@index([church_id])
-  @@index([member_id])
+  @@index([member_id, church_id, deleted_at], map: "idx_church_member_member_church")
+  @@index([member_id, role, deleted_at], map: "idx_church_member_member_role")
 }
 
 model group {
   id                 String             @id @db.Char(36)
   church_id          String             @db.Char(36)
+  department_id      String?            @db.Char(36)
   type               String             @default("NORMAL") @db.VarChar(20)
   name               String             @db.VarChar(50)
   description        String?            @db.VarChar(100)
@@ -81,9 +88,11 @@ model group {
   education_programs education_program?
   gatherings         gathering[]
   church             church             @relation(fields: [church_id], references: [id])
+  department         department?        @relation(fields: [department_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "group_ibfk_1")
   group_members      group_member[]
 
   @@index([church_id, deleted_at], map: "idx_group_church_deleted")
+  @@index([department_id, deleted_at], map: "idx_group_department_deleted")
   @@map("group")
 }
 
@@ -101,8 +110,9 @@ model group_member {
   group              group                @relation(fields: [group_id], references: [id])
   member             member               @relation(fields: [member_id], references: [id])
 
-  @@index([group_id])
   @@index([member_id])
+  @@index([group_id, member_id, deleted_at], map: "idx_group_member_group_member")
+  @@index([group_id, status, deleted_at], map: "idx_group_member_group_status")
 }
 
 model gathering {
@@ -125,6 +135,7 @@ model gathering {
   gathering_members  gathering_member[]
 
   @@index([group_id, deleted_at], map: "idx_gathering_group_deleted")
+  @@index([date, deleted_at], map: "idx_gathering_date")
 }
 
 model gathering_member {
@@ -180,6 +191,8 @@ model media {
   deleted_at    DateTime? @db.DateTime(6)
 
   @@index([entity_id], map: "idx_media_entity_id")
+  @@index([entity_type, entity_id, deleted_at], map: "idx_media_entity_type_id")
+  @@index([file_group_id, deleted_at], map: "idx_media_file_group")
   @@ignore
 }
 
@@ -194,6 +207,7 @@ model verification {
   updated_at DateTime  @default(now()) @db.DateTime(6)
   deleted_at DateTime? @db.DateTime(6)
 
+  @@index([type, type_value, deleted_at], map: "idx_verification_type_value")
   @@ignore
 }
 
@@ -215,8 +229,8 @@ model visit {
   church_member    church_member  @relation(fields: [church_member_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   visit_member     visit_member[]
 
-  @@index([church_id], map: "visit_church_id_fkey")
   @@index([church_member_id], map: "visit_church_member_id_fkey")
+  @@index([church_id, date, deleted_at], map: "idx_visit_church_date")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -257,18 +271,17 @@ model event {
   entity_type String    @db.VarChar(20)
   title       String    @db.VarChar(100)
   description String?   @db.VarChar(500)
-  start_date  DateTime  @db.Date
-  end_date    DateTime  @db.Date
+  start_date  DateTime  @default(dbgenerated("'2026-01-01'")) @db.Date
+  end_date    DateTime  @default(dbgenerated("'2026-01-01'")) @db.Date
   start_time  DateTime? @db.Time(0)
   end_time    DateTime? @db.Time(0)
   location    String?   @db.VarChar(200)
-  color       String?   @db.VarChar(20)
+  color       String    @default("PEACOCK") @db.VarChar(20)
   created_at  DateTime  @default(now()) @db.DateTime(6)
   updated_at  DateTime  @default(now()) @db.DateTime(6)
   deleted_at  DateTime? @db.DateTime(6)
 
-  @@index([entity_id, entity_type, start_date], map: "idx_event_entity_start_date")
-  @@index([start_date], map: "idx_event_start_date")
+  @@index([entity_id, entity_type, start_date, end_date, deleted_at], map: "idx_event_entity_dates")
 }
 
 /// 교육 프로그램
@@ -302,52 +315,55 @@ model education_progress {
   @@index([gathering_id], map: "education_progress_gathering_id_fkey")
 }
 
-/// 교회 멤버 편입 요청
+/// 교회 멤버 ���입 요청
 model church_member_request {
-  id         String    @id @db.Char(36)
-  member_id  String    @db.Char(36)
-  church_id  String    @db.Char(36)
-  status     String    @default("PENDING") @db.VarChar(20)
-  created_at DateTime  @default(now()) @db.DateTime(6)
-  updated_at DateTime  @default(now()) @db.DateTime(6)
-  deleted_at DateTime? @db.DateTime(6)
-  church     church    @relation(fields: [church_id], references: [id])
-  member     member    @relation(fields: [member_id], references: [id])
+  id            String      @id @db.Char(36)
+  member_id     String      @db.Char(36)
+  church_id     String      @db.Char(36)
+  department_id String?     @db.Char(36)
+  status        String      @default("PENDING") @db.VarChar(20)
+  created_at    DateTime    @default(now()) @db.DateTime(6)
+  updated_at    DateTime    @default(now()) @db.DateTime(6)
+  deleted_at    DateTime?   @db.DateTime(6)
+  church        church      @relation(fields: [church_id], references: [id])
+  department    department? @relation(fields: [department_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "church_member_request_ibfk_1")
+  member        member      @relation(fields: [member_id], references: [id])
 
   @@index([church_id])
-  @@index([member_id], map: "church_member_request_member_id_fkey")
+  @@index([department_id], map: "fk_cmr_department")
+  @@index([member_id, church_id, status, deleted_at], map: "idx_cmr_member_church_status")
 }
 
 /// 알림
 model notification {
-  id          String    @id @db.Char(36)
-  receiver_id String    @db.Char(36)
-  sender_id   String?   @db.Char(36)
-  type        String    @db.VarChar(30)
-  entity_type String    @db.VarChar(50)
-  entity_id   String    @db.Char(36)
-  target_url  String?   @db.VarChar(300)
-  is_read     Int       @default(0) @db.TinyInt
-  created_at  DateTime  @default(now()) @db.DateTime(6)
-  updated_at  DateTime  @default(now()) @db.DateTime(6)
-  deleted_at  DateTime? @db.DateTime(6)
-  receiver    member    @relation("notification_receiver", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id            String      @id @db.Char(36)
+  receiver_id   String      @db.Char(36)
+  sender_id     String?     @db.Char(36)
+  department_id String?     @db.Char(36)
+  type          String      @db.VarChar(30)
+  description   String?     @db.VarChar(300)
+  entity_type   String      @db.VarChar(50)
+  entity_id     String      @db.Char(36)
+  target_url    String?     @db.VarChar(300)
+  is_read       Boolean     @default(false)
+  created_at    DateTime    @db.DateTime(6)
+  updated_at    DateTime    @db.DateTime(6)
+  deleted_at    DateTime?   @db.DateTime(6)
+  receiver      member      @relation("notification_receiver", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notification_receiver")
+  department    department? @relation(fields: [department_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notification_department")
 
-  @@index([receiver_id, created_at(sort: Desc)], map: "idx_notification_receiver_list")
-  @@index([receiver_id, type, entity_type, entity_id, is_read], map: "idx_notification_dedup")
+  @@index([receiver_id, department_id, created_at(sort: Desc)], map: "idx_notification_receiver_list")
+  @@index([receiver_id, type, entity_type, entity_id, department_id, is_read], map: "idx_notification_dedup")
   @@index([entity_type, entity_id], map: "idx_notification_entity")
 }
 
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model master_password {
-  id         String    @db.Char(36)
+  id         String    @id @db.Char(36)
   password   String    @db.VarChar(255)
   created_at DateTime  @default(now()) @db.DateTime(6)
   updated_at DateTime  @default(now()) @db.DateTime(6)
   deleted_at DateTime? @db.DateTime(6)
-
-  @@ignore
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -372,25 +388,81 @@ model message {
 
 /// 서버/DB/API 리소스 메트릭 (5분 간격 수집, 영구 보존)
 model metrics {
-  id                  BigInt    @id @default(autoincrement())
-  collected_at        DateTime  @db.DateTime(0)
-  container_name      String    @db.VarChar(50)
-  status              String    @db.VarChar(20)
-  cpu_percent         Decimal?  @db.Decimal(5, 2)
-  memory_mb           Int?
-  memory_percent      Decimal?  @db.Decimal(5, 2)
-  disk_percent        Decimal?  @db.Decimal(5, 2)
-  network_rx_mb       Decimal?  @db.Decimal(10, 2)
-  network_tx_mb       Decimal?  @db.Decimal(10, 2)
-  restart_count       Int?      @default(0)
-  api_avg_response_ms Int?
-  api_error_rate      Decimal?  @db.Decimal(5, 2)
-  jvm_heap_mb         Int?
-  active_threads      Int?
-  mysql_connections   Int?
-  mysql_slow_queries  Int?
+  id                    BigInt   @id @default(autoincrement())
+  collected_at          DateTime @db.DateTime(0)
+  container_name        String   @db.VarChar(50)
+  status                String   @db.VarChar(20)
+  cpu_percent           Decimal? @db.Decimal(5, 2)
+  memory_mb             Int?
+  memory_percent        Decimal? @db.Decimal(5, 2)
+  disk_percent          Decimal? @db.Decimal(5, 2)
+  network_rx_mb         Decimal? @db.Decimal(10, 2)
+  network_tx_mb         Decimal? @db.Decimal(10, 2)
+  restart_count         Int?     @default(0)
+  api_avg_response_ms   Int?
+  api_error_rate        Decimal? @db.Decimal(5, 2)
+  jvm_heap_mb           Int?
+  active_threads        Int?
+  mysql_connections     Int?
+  mysql_slow_queries    Int?
   mysql_threads_running Int?
 
   @@index([collected_at(sort: Desc)], map: "idx_metrics_collected")
   @@index([container_name, collected_at(sort: Desc)], map: "idx_metrics_container_time")
+}
+
+/// 부서
+model department {
+  id                     String                  @id @db.Char(36)
+  church_id              String                  @db.Char(36)
+  name                   String                  @db.VarChar(50)
+  description            String?                 @db.VarChar(200)
+  is_default             Boolean                 @default(false)
+  created_at             DateTime                @default(now()) @db.DateTime(0)
+  updated_at             DateTime?               @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at             DateTime?               @db.DateTime(0)
+  church_member_requests church_member_request[]
+  church                 church                  @relation(fields: [church_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "department_ibfk_1")
+  department_members     department_member[]
+  groups                 group[]
+  notifications          notification[]
+
+  @@unique([church_id, name, deleted_at], map: "uk_department_church_name")
+  @@index([church_id, deleted_at], map: "idx_department_church_deleted")
+}
+
+/// 부서 멤버
+model department_member {
+  id            String     @id @db.Char(36)
+  department_id String     @db.Char(36)
+  member_id     String     @db.Char(36)
+  role          String     @default("MEMBER") @db.VarChar(20)
+  status        String     @default("ACTIVE") @db.VarChar(20)
+  created_at    DateTime   @default(now()) @db.DateTime(0)
+  updated_at    DateTime?  @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at    DateTime?  @db.DateTime(0)
+  department    department @relation(fields: [department_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "department_member_ibfk_1")
+  member        member     @relation(fields: [member_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "department_member_ibfk_2")
+
+  @@unique([department_id, member_id, deleted_at], map: "uk_dm_dept_member")
+  @@index([department_id, deleted_at], map: "idx_dm_department_deleted")
+  @@index([member_id], map: "idx_dm_member")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sermon_note {
+  id           String    @id @db.Char(36)
+  member_id    String    @db.Char(36)
+  title        String    @db.VarChar(100)
+  sermon_date  DateTime  @db.Date
+  preacher     String?   @db.VarChar(50)
+  service_type String?   @db.VarChar(50)
+  scripture    String?   @db.VarChar(200)
+  content      String    @db.Text
+  created_at   DateTime  @default(now()) @db.DateTime(6)
+  updated_at   DateTime  @default(now()) @db.DateTime(6)
+  deleted_at   DateTime? @db.DateTime(6)
+  member       member    @relation(fields: [member_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sermon_note_member")
+
+  @@index([member_id, deleted_at, sermon_date(sort: Desc)], map: "idx_sermon_note_member_date")
 }

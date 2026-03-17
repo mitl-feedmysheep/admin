@@ -33,6 +33,12 @@ export const GET = withLogging(async () => {
             phone: true,
           },
         },
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       orderBy: {
         updated_at: "desc",
@@ -79,6 +85,8 @@ export const GET = withLogging(async () => {
       sex: req.member.sex === "M" ? "MALE" : "FEMALE",
       birthday: req.member.birthday?.toISOString().split("T")[0] || "",
       phone: req.member.phone || "",
+      departmentId: req.department_id || null,
+      departmentName: req.department?.name || null,
       status: req.status,
       completedBy: completedByMap[req.id] || "",
       requestedAt: req.created_at.toISOString().split("T")[0],

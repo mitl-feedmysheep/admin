@@ -14,6 +14,9 @@ export interface JWTPayload {
   churchId: string;
   churchName: string;
   role: string;
+  departmentId?: string;
+  departmentName?: string;
+  departmentRole?: string;
   iat: number;
   exp: number;
 }
@@ -30,6 +33,9 @@ export async function createToken(payload: {
   churchId: string;
   churchName: string;
   role: string;
+  departmentId?: string;
+  departmentName?: string;
+  departmentRole?: string;
 }): Promise<string> {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { hasDepartmentPermissionOver } from "@/lib/roles";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { withLogging } from "@/lib/api-logger";
@@ -8,7 +9,11 @@ import { withLogging } from "@/lib/api-logger";
 export const POST = withLogging(async (request: NextRequest) => {
   try {
     const session = await getSession();
-    if (!session || session.memberId !== process.env.SYSTEM_ADMIN_MEMBER_ID) {
+    const isSystemAdmin = session?.memberId === process.env.SYSTEM_ADMIN_MEMBER_ID;
+    const isDeptLeaderOrAbove = session?.departmentRole
+      ? hasDepartmentPermissionOver(session.departmentRole, "LEADER")
+      : false;
+    if (!session || (!isSystemAdmin && !isDeptLeaderOrAbove)) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 

@@ -18,8 +18,13 @@ function createPrismaMock() {
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(_target, prop) {
       if (prop === "$transaction") {
-        return vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
-          return fn(new Proxy({}, handler));
+        return vi.fn(async (fnOrArray: unknown) => {
+          if (Array.isArray(fnOrArray)) {
+            return Promise.all(fnOrArray);
+          }
+          return (fnOrArray as (tx: unknown) => Promise<unknown>)(
+            new Proxy({}, handler)
+          );
         });
       }
       if (typeof prop === "string" && !prop.startsWith("_")) {

@@ -18,14 +18,25 @@ export const GET = withLogging(async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     const year = parseInt(searchParams.get("year") || new Date().getFullYear().toString());
     const churchId = session.churchId;
+    const isSuperAdmin = session.role === "SUPER_ADMIN";
+    const departmentId = session.departmentId;
+    // SUPER_ADMIN이라도 부서를 선택했으면 해당 부서 기준으로 필터
+    const showAll = isSuperAdmin && !departmentId;
 
-    // 1. 전체 멤버 수 (해당 교회의 활성 멤버)
-    const totalMembers = await prisma.church_member.count({
-      where: {
-        church_id: churchId,
-        deleted_at: null,
-      },
-    });
+    // 1. 전체 멤버 수 (해당 교회/부서의 활성 멤버)
+    const totalMembers = showAll
+      ? await prisma.church_member.count({
+          where: {
+            church_id: churchId,
+            deleted_at: null,
+          },
+        })
+      : await prisma.department_member.count({
+          where: {
+            department_id: departmentId,
+            deleted_at: null,
+          },
+        });
 
     // 2. 해당 연도에 "활동 중인" 소그룹 집계
     // 조건: 연말 이전에 시작 AND (연초 이후에 끝나거나 아직 안 끝남)
@@ -37,6 +48,7 @@ export const GET = withLogging(async (request: NextRequest) => {
       where: {
         church_id: churchId,
         deleted_at: null,
+        department_id: showAll ? undefined : departmentId,
         start_date: { lte: yearEnd }, // 연말 이전에 시작
         OR: [
           { end_date: null }, // 아직 안 끝남

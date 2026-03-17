@@ -157,10 +157,14 @@ export const PATCH = withLogging(async (
     const body = await request.json();
     const { adminComment } = body;
 
-    // 기존 모임 조회 (adminComment 변경 여부 판단용)
+    // 기존 모임 조회 (adminComment 변경 여부 판단용 + group의 department_id)
     const existing = await prisma.gathering.findUnique({
       where: { id: gatheringId, deleted_at: null },
-      select: { admin_comment: true, group_id: true },
+      select: {
+        admin_comment: true,
+        group_id: true,
+        group: { select: { department_id: true } },
+      },
     });
 
     if (!existing) {
@@ -208,7 +212,7 @@ export const PATCH = withLogging(async (
               type: "ADMIN_COMMENT",
               entity_type: "GATHERING",
               entity_id: gatheringId,
-              is_read: 0,
+              is_read: false,
               deleted_at: null,
             },
           });
@@ -222,11 +226,12 @@ export const PATCH = withLogging(async (
                 id: crypto.randomUUID(),
                 receiver_id: leader.member_id,
                 sender_id: session.memberId,
+                department_id: existing.group?.department_id ?? null,
                 type: "ADMIN_COMMENT",
                 entity_type: "GATHERING",
                 entity_id: gatheringId,
                 target_url: targetUrl,
-                is_read: 0,
+                is_read: false,
                 created_at: now,
                 updated_at: now,
               },

@@ -37,6 +37,9 @@ describe("GET /api/members", () => {
       churchId: "church-001",
       churchName: "교회",
       role: "ADMIN",
+      departmentId: "dept-001",
+      departmentName: "청년부",
+      departmentRole: "ADMIN",
       iat: 0,
       exp: 0,
     });
@@ -57,9 +60,16 @@ describe("GET /api/members", () => {
       churchId: "church-001",
       churchName: "교회",
       role: "ADMIN",
+      departmentId: "dept-001",
+      departmentName: "청년부",
+      departmentRole: "ADMIN",
       iat: 0,
       exp: 0,
     });
+
+    getPrismaMock("department_member", "findMany").mockResolvedValue([
+      { member_id: "m-10" },
+    ]);
 
     getPrismaMock("church_member", "findMany").mockResolvedValue([
       {
@@ -111,9 +121,16 @@ describe("GET /api/members", () => {
       churchId: "church-001",
       churchName: "교회",
       role: "ADMIN",
+      departmentId: "dept-001",
+      departmentName: "청년부",
+      departmentRole: "ADMIN",
       iat: 0,
       exp: 0,
     });
+
+    getPrismaMock("department_member", "findMany").mockResolvedValue([
+      { member_id: "m-20" },
+    ]);
 
     getPrismaMock("church_member", "findMany").mockResolvedValue([
       {
@@ -150,5 +167,56 @@ describe("GET /api/members", () => {
     const member = body.data.members[0];
     expect(member.role).toBe("MEMBER");
     expect(member.primaryGroup).toBe("2셀");
+  });
+
+  it("filters by department for non-SUPER_ADMIN", async () => {
+    mockedGetSession.mockResolvedValue({
+      memberId: "m-1",
+      memberName: "관리자",
+      churchId: "church-001",
+      churchName: "교회",
+      role: "ADMIN",
+      departmentId: "dept-001",
+      departmentName: "청년부",
+      departmentRole: "ADMIN",
+      iat: 0,
+      exp: 0,
+    });
+
+    getPrismaMock("department_member", "findMany").mockResolvedValue([
+      { member_id: "m-10" },
+      { member_id: "m-20" },
+    ]);
+
+    getPrismaMock("church_member", "findMany").mockResolvedValue([
+      {
+        id: "cm-1",
+        member_id: "m-10",
+        member: {
+          id: "m-10",
+          name: "홍길동",
+          email: null,
+          phone: null,
+          sex: null,
+          birthday: null,
+          profile_url: null,
+          address: null,
+          occupation: null,
+          baptism_status: null,
+          mbti: null,
+          description: null,
+        },
+      },
+    ]);
+
+    getPrismaMock("group_member", "findMany").mockResolvedValue([]);
+
+    const res = await GET(membersRequest("홍"));
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.data.members).toHaveLength(1);
+    expect(body.data.members[0].name).toBe("홍길동");
   });
 });

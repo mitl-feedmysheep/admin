@@ -70,6 +70,7 @@ export const GET = withLogging(async (request: NextRequest) => {
           OR: [
             { name: { contains: query } },
             { phone: { contains: query } },
+            { email: { contains: query } },
           ],
         },
       },

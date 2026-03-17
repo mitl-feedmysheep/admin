@@ -15,6 +15,9 @@ export async function AdminLayout({ children }: AdminLayoutProps) {
       churchName={session?.churchName}
       memberName={session?.memberName}
       role={session?.role}
+      departmentId={session?.departmentId}
+      departmentName={session?.departmentName}
+      departmentRole={session?.departmentRole}
       isSystemAdmin={isSystemAdmin}
     >
       {children}

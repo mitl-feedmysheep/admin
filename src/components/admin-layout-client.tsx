@@ -13,6 +13,9 @@ interface AdminLayoutClientProps {
   churchName?: string;
   memberName?: string;
   role?: string;
+  departmentId?: string;
+  departmentName?: string;
+  departmentRole?: string;
   isSystemAdmin?: boolean;
 }
 
@@ -22,6 +25,9 @@ export function AdminLayoutClient({
   churchName,
   memberName,
   role,
+  departmentId,
+  departmentName,
+  departmentRole,
   isSystemAdmin,
 }: AdminLayoutClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -40,6 +46,9 @@ export function AdminLayoutClient({
           churchName={churchName}
           memberName={memberName}
           role={role}
+          departmentId={departmentId}
+          departmentName={departmentName}
+          departmentRole={departmentRole}
           isSystemAdmin={isSystemAdmin}
         />
       </div>
@@ -58,6 +67,9 @@ export function AdminLayoutClient({
             churchName={churchName}
             memberName={memberName}
             role={role}
+            departmentId={departmentId}
+            departmentName={departmentName}
+            departmentRole={departmentRole}
             isSystemAdmin={isSystemAdmin}
             onNavigate={handleNavigate}
           />

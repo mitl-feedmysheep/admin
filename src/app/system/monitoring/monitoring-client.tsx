@@ -33,7 +33,12 @@ import {
   UserPlus,
   HardDrive,
   Terminal,
+  Bell,
+  Mail,
+  MailOpen,
+  Check,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   LineChart,
   Line,
@@ -78,6 +83,14 @@ interface MonitoringData {
     weekStart: string;
     weekEnd: string;
   };
+}
+
+interface AdminMessage {
+  id: string;
+  senderName: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
 }
 
 // --- Constants ---
@@ -176,6 +189,13 @@ export function MonitoringClient() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Admin messages
+  const [adminMessages, setAdminMessages] = useState<AdminMessage[]>([]);
+  const [adminMsgUnread, setAdminMsgUnread] = useState(0);
+  const [markingReadId, setMarkingReadId] = useState<string | null>(null);
+  const [adminMsgOpen, setAdminMsgOpen] = useState(false);
+  const [expandedMsgId, setExpandedMsgId] = useState<string | null>(null);
+
   const [logDialogOpen, setLogDialogOpen] = useState(false);
   const [logContainer, setLogContainer] = useState("");
   const [logLines, setLogLines] = useState("200");
@@ -236,6 +256,40 @@ export function MonitoringClient() {
     []
   );
 
+  const fetchAdminMessages = useCallback(async () => {
+    try {
+      const res = await fetch("/api/system/admin-messages");
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setAdminMessages(json.data.messages);
+        setAdminMsgUnread(json.data.unreadCount);
+      }
+    } catch {
+      // silently fail
+    }
+  }, []);
+
+  async function markMessageRead(messageId: string) {
+    setMarkingReadId(messageId);
+    try {
+      const res = await fetch("/api/system/admin-messages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId }),
+      });
+      if (res.ok) {
+        setAdminMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, isRead: true } : m)),
+        );
+        setAdminMsgUnread((prev) => Math.max(0, prev - 1));
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setMarkingReadId(null);
+    }
+  }
+
   function openLogDialog(containerName: string) {
     setLogContainer(containerName);
     setLogDialogOpen(true);
@@ -247,13 +301,19 @@ export function MonitoringClient() {
     fetchData();
   }, [fetchData]);
 
+  // Load admin messages on mount
+  useEffect(() => {
+    fetchAdminMessages();
+  }, [fetchAdminMessages]);
+
   // Auto-refresh every 60s
   useEffect(() => {
     const interval = setInterval(() => {
       fetchData(true);
+      fetchAdminMessages();
     }, 60000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchData, fetchAdminMessages]);
 
   const containerNames = useMemo(() => {
     if (!data) return [];
@@ -362,6 +422,119 @@ export function MonitoringClient() {
           </Button>
         </div>
       </div>
+
+      {/* 관리자 요청 메시지 */}
+      {adminMessages.length > 0 && (
+        <Card className="border-slate-200 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setAdminMsgOpen((v) => !v)}
+            className="flex w-full items-center justify-between px-6 py-4 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+          >
+            <div className="flex items-center gap-2">
+              <Bell className={`h-5 w-5 ${adminMsgUnread > 0 ? "text-red-500" : "text-slate-400"}`} />
+              <span className="text-base font-semibold text-slate-900 dark:text-white">
+                관리자 요청
+              </span>
+              {adminMsgUnread > 0 && (
+                <Badge className="bg-red-500 text-white hover:bg-red-500">
+                  {adminMsgUnread}건
+                </Badge>
+              )}
+              {adminMsgUnread === 0 && (
+                <span className="text-xs text-slate-400">
+                  총 {adminMessages.length}건
+                </span>
+              )}
+            </div>
+            <svg
+              className={`h-5 w-5 text-slate-400 transition-transform ${adminMsgOpen ? "rotate-180" : ""}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {adminMsgOpen && (
+            <div className="border-t border-slate-200 dark:border-slate-700">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {adminMessages.map((msg) => {
+                  const isExpanded = expandedMsgId === msg.id;
+                  // 메시지 첫 줄 = 요청 제목
+                  const lines = msg.message.split("\n");
+                  const firstLine = lines[0] || "";
+                  const restLines = lines.slice(1).join("\n").trim();
+
+                  return (
+                    <div key={msg.id} className={!msg.isRead ? "bg-red-50/40 dark:bg-red-900/5" : ""}>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedMsgId(isExpanded ? null : msg.id)}
+                        className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/30"
+                      >
+                        <div className="shrink-0">
+                          {msg.isRead ? (
+                            <MailOpen className="h-4 w-4 text-slate-400" />
+                          ) : (
+                            <Mail className="h-4 w-4 text-red-500" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm truncate ${!msg.isRead ? "font-semibold text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-400"}`}>
+                              {firstLine.replace("[관리자 요청] ", "")}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-slate-400">
+                            {msg.senderName} · {formatLastCollected(msg.createdAt)}
+                          </span>
+                          <svg
+                            className={`h-4 w-4 text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/20">
+                          <pre className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300 font-sans leading-relaxed">
+                            {restLines || "(내용 없음)"}
+                          </pre>
+                          {!msg.isRead && (
+                            <div className="mt-3 flex justify-end">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1 text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markMessageRead(msg.id);
+                                }}
+                                disabled={markingReadId === msg.id}
+                              >
+                                {markingReadId === msg.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="h-3.5 w-3.5" />
+                                )}
+                                읽음 처리
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* A. 서비스 상태 */}
       <div>

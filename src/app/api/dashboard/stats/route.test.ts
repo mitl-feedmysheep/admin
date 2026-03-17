@@ -17,6 +17,19 @@ const session = {
   churchId: "church-001",
   churchName: "교회",
   role: "ADMIN",
+  departmentId: "dept-001",
+  departmentName: "청년부",
+  departmentRole: "ADMIN",
+  iat: 0,
+  exp: 0,
+};
+
+const superAdminSession = {
+  memberId: "m-1",
+  memberName: "담임목사",
+  churchId: "church-001",
+  churchName: "교회",
+  role: "SUPER_ADMIN",
   iat: 0,
   exp: 0,
 };
@@ -35,8 +48,8 @@ describe("GET /api/dashboard/stats", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns stats with attendance rates", async () => {
-    mockedGetSession.mockResolvedValue(session);
+  it("returns stats with attendance rates (SUPER_ADMIN)", async () => {
+    mockedGetSession.mockResolvedValue(superAdminSession);
 
     getPrismaMock("church_member", "count").mockResolvedValue(25);
     getPrismaMock("group", "findMany").mockResolvedValue([
@@ -73,8 +86,40 @@ describe("GET /api/dashboard/stats", () => {
     expect(body.data.gatheringRate).toBe("50%");
   });
 
-  it("returns 0% rates when no gatherings exist", async () => {
+  it("returns stats with attendance rates (department ADMIN)", async () => {
     mockedGetSession.mockResolvedValue(session);
+
+    getPrismaMock("department_member", "count").mockResolvedValue(15);
+    getPrismaMock("group", "findMany").mockResolvedValue([
+      {
+        id: "g-1",
+        gatherings: [
+          {
+            gathering_members: [
+              { worship_attendance: true, gathering_attendance: true },
+              { worship_attendance: false, gathering_attendance: false },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const req = new NextRequest(
+      "http://localhost:3001/api/dashboard/stats?year=2025"
+    );
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.data.totalMembers).toBe(15);
+    expect(body.data.activeGroups).toBe(1);
+    expect(body.data.worshipRate).toBe("50%");
+    expect(body.data.gatheringRate).toBe("50%");
+  });
+
+  it("returns 0% rates when no gatherings exist", async () => {
+    mockedGetSession.mockResolvedValue(superAdminSession);
 
     getPrismaMock("church_member", "count").mockResolvedValue(10);
     getPrismaMock("group", "findMany").mockResolvedValue([]);

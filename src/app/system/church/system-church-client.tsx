@@ -194,7 +194,7 @@ function CreateChurchTab() {
           </div>
 
           <div className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting} className="gap-2 bg-slate-800 hover:bg-slate-700">
+            <Button type="submit" disabled={isSubmitting} className="gap-2 bg-slate-800 hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500">
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -297,7 +297,9 @@ function AssignAdminTab() {
 
       const churchName = churches.find((c) => c.id === selectedChurchId)?.name;
       toast.success(
-        `${searchedMember.name}님을 "${churchName}" 교회의 ${selectedRole}로 추가했습니다.`
+        data.updated
+          ? `${searchedMember.name}님의 권한을 ${selectedRole}로 변경했습니다. (${churchName})`
+          : `${searchedMember.name}님을 "${churchName}" 교회의 ${selectedRole}로 추가했습니다.`
       );
 
       setSearchedMember(null);
@@ -416,6 +418,17 @@ function AssignAdminTab() {
                   />
                   ADMIN (관리자)
                 </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="MEMBER"
+                    checked={selectedRole === "MEMBER"}
+                    onChange={(e) => setSelectedRole(e.target.value)}
+                    className="accent-indigo-600"
+                  />
+                  MEMBER (일반)
+                </label>
               </div>
             </div>
           )}
@@ -426,7 +439,7 @@ function AssignAdminTab() {
               <Button
                 onClick={handleAssign}
                 disabled={isAssigning || !selectedChurchId}
-                className="gap-2 bg-slate-800 hover:bg-slate-700"
+                className="gap-2 bg-slate-800 hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500"
               >
                 {isAssigning ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -596,7 +609,7 @@ function ResetPasswordTab() {
               <Button
                 onClick={handleReset}
                 disabled={isResetting || !newPassword || newPassword.length < 8}
-                className="gap-2 bg-slate-800 hover:bg-slate-700"
+                className="gap-2 bg-slate-800 hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500"
               >
                 {isResetting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

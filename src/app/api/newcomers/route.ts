@@ -21,6 +21,9 @@ export const GET = withLogging(async (request: NextRequest) => {
     const yearParam =
       searchParams.get("year") || new Date().getFullYear().toString();
     const churchId = session.churchId;
+    const isSuperAdmin = session.role === "SUPER_ADMIN";
+    const departmentId = session.departmentId;
+    const showAll = isSuperAdmin && !departmentId;
 
     const yearFilter = {
       start_date: { lte: new Date(`${yearParam}-12-31`) },
@@ -35,6 +38,7 @@ export const GET = withLogging(async (request: NextRequest) => {
         church_id: churchId,
         type: "NEWCOMER",
         deleted_at: null,
+        ...(!showAll && departmentId ? { department_id: departmentId } : {}),
         ...yearFilter,
       },
       include: {

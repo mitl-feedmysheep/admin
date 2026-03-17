@@ -22,6 +22,8 @@ import {
   Users,
   X,
   Search,
+  Calendar,
+  Wallet,
 } from "lucide-react";
 import {
   Dialog,
@@ -140,6 +142,15 @@ export function VisitManageClient() {
   const [visits, setVisits] = useState<VisitListItem[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Yearly summary state
+  const [yearlySummary, setYearlySummary] = useState({
+    totalVisits: 0,
+    uniqueMembers: 0,
+    totalMembers: 0,
+    totalExpense: 0,
+  });
+  const [yearlyLoading, setYearlyLoading] = useState(false);
+
   // Detail state
   const [selectedVisit, setSelectedVisit] = useState<VisitDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -225,9 +236,35 @@ export function VisitManageClient() {
     [],
   );
 
+  const fetchYearlySummary = useCallback(async (year: number) => {
+    setYearlyLoading(true);
+    try {
+      const res = await fetch(`/api/visits?year=${year}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const yearVisits = data.data.visits as VisitListItem[];
+        const uniqueIds = new Set(yearVisits.flatMap((v) => v.members.map((m) => m.memberId)));
+        setYearlySummary({
+          totalVisits: yearVisits.length,
+          uniqueMembers: uniqueIds.size,
+          totalMembers: yearVisits.reduce((s, v) => s + v.memberCount, 0),
+          totalExpense: yearVisits.reduce((s, v) => s + v.expense, 0),
+        });
+      }
+    } catch {
+      console.error("연간 심방 요약 불러오기 실패");
+    } finally {
+      setYearlyLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchVisits(viewDate.year, viewDate.month);
   }, [viewDate, fetchVisits]);
+
+  useEffect(() => {
+    fetchYearlySummary(viewDate.year);
+  }, [viewDate.year, fetchYearlySummary]);
 
   const fetchDetail = async (visitId: string, pushHistory = true) => {
     setDetailLoading(true);
@@ -289,6 +326,7 @@ export function VisitManageClient() {
           notes: "",
         });
         fetchVisits(viewDate.year, viewDate.month);
+        fetchYearlySummary(viewDate.year);
         if (selectedVisit && editingId) {
           fetchDetail(editingId, false);
         }
@@ -318,6 +356,7 @@ export function VisitManageClient() {
       if (res.ok) {
         if (selectedVisit?.id === visitId) setSelectedVisit(null);
         fetchVisits(viewDate.year, viewDate.month);
+        fetchYearlySummary(viewDate.year);
         showAlert("삭제 완료", "심방이 삭제되었습니다.", "success");
       }
     } catch {
@@ -335,6 +374,7 @@ export function VisitManageClient() {
       if (res.ok) {
         fetchDetail(selectedVisit.id, false);
         fetchVisits(viewDate.year, viewDate.month);
+        fetchYearlySummary(viewDate.year);
         showAlert("제거 완료", "멤버가 제거되었습니다.", "success");
       }
     } catch {
@@ -370,27 +410,19 @@ export function VisitManageClient() {
         },
       );
 
-      // 2. 삭제된 기존 기도제목 처리
-      const remainingIds = new Set(existingPrayerDrafts.map((d) => d.id));
-      for (const p of vm.prayers) {
-        if (!remainingIds.has(p.id)) {
-          await fetch(`/api/prayers/${p.id}`, { method: "DELETE" });
-        }
-      }
-
-      // 3. 새 기도제목 생성
-      for (const text of newPrayerDrafts) {
-        if (text.trim()) {
-          await fetch(
-            `/api/visits/${selectedVisit.id}/members/${vm.id}/prayers`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ prayerRequest: text.trim() }),
-            },
-          );
-        }
-      }
+      // 2. 기도제목 일괄 저장 (기존 수정 + 삭제 + 신규 생성)
+      const prayers = [
+        ...existingPrayerDrafts.map((d) => ({ id: d.id, prayerRequest: d.text })),
+        ...newPrayerDrafts.filter((t) => t.trim()).map((t) => ({ prayerRequest: t.trim() })),
+      ];
+      await fetch(
+        `/api/visits/${selectedVisit.id}/members/${vm.id}/prayers`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prayers }),
+        },
+      );
 
       cancelEditing();
       fetchDetail(selectedVisit.id, false);
@@ -457,6 +489,7 @@ export function VisitManageClient() {
         setSelectedMemberIds([]);
         fetchDetail(selectedVisit.id, false);
         fetchVisits(viewDate.year, viewDate.month);
+        fetchYearlySummary(viewDate.year);
         showAlert("추가 완료", "멤버가 추가되었습니다.", "success");
       } else {
         const err = await res.json();
@@ -1113,14 +1146,57 @@ export function VisitManageClient() {
   // List view
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-          심방 관리
-        </h1>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          심방을 생성하고 관리합니다
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            심방 관리
+          </h1>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            심방을 생성하고 관리합니다
+          </p>
+        </div>
+        <select
+          value={viewDate.year}
+          onChange={(e) => setViewDate((prev) => ({ ...prev, year: Number(e.target.value) }))}
+          className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300"
+        >
+          {Array.from({ length: new Date().getFullYear() - 2025 + 1 }, (_, i) => {
+            const y = new Date().getFullYear() - i;
+            return <option key={y} value={y}>{y}년</option>;
+          })}
+        </select>
       </div>
+
+      {/* Yearly summary */}
+      {yearlyLoading ? (
+        <div className="flex justify-center py-6">
+          <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          <Card className="border-slate-200 dark:border-slate-800">
+            <CardContent className="pt-5 pb-4 text-center">
+              <Calendar className="h-5 w-5 text-blue-500 mx-auto mb-1" />
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{yearlySummary.totalVisits}회</p>
+              <p className="text-xs text-slate-500">{viewDate.year}년 총 심방</p>
+            </CardContent>
+          </Card>
+          <Card className="border-slate-200 dark:border-slate-800">
+            <CardContent className="pt-5 pb-4 text-center">
+              <Users className="h-5 w-5 text-emerald-500 mx-auto mb-1" />
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{yearlySummary.uniqueMembers}명</p>
+              <p className="text-xs text-slate-500">심방 대상</p>
+            </CardContent>
+          </Card>
+          <Card className="border-slate-200 dark:border-slate-800">
+            <CardContent className="pt-5 pb-4 text-center">
+              <Wallet className="h-5 w-5 text-amber-500 mx-auto mb-1" />
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{yearlySummary.totalExpense.toLocaleString()}원</p>
+              <p className="text-xs text-slate-500">{viewDate.year}년 총 비용</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -1150,6 +1226,32 @@ export function VisitManageClient() {
               다음 →
             </Button>
           </div>
+
+          {/* Monthly summary */}
+          {!loading && visits.length > 0 && (() => {
+            const totalVisits = visits.length;
+            const uniqueMemberIds = new Set(visits.flatMap((v) => v.members.map((m) => m.memberId)));
+            const totalExpense = visits.reduce((sum, v) => sum + v.expense, 0);
+            return (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 text-center">
+                  <Calendar className="h-4 w-4 text-blue-500 mx-auto mb-1" />
+                  <p className="text-lg font-bold text-slate-900 dark:text-white">{totalVisits}회</p>
+                  <p className="text-[11px] text-slate-500">이번 달 심방</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 text-center">
+                  <Users className="h-4 w-4 text-emerald-500 mx-auto mb-1" />
+                  <p className="text-lg font-bold text-slate-900 dark:text-white">{uniqueMemberIds.size}명</p>
+                  <p className="text-[11px] text-slate-500">심방 대상</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 text-center">
+                  <Wallet className="h-4 w-4 text-amber-500 mx-auto mb-1" />
+                  <p className="text-lg font-bold text-slate-900 dark:text-white">{totalExpense.toLocaleString()}원</p>
+                  <p className="text-[11px] text-slate-500">이번 달 비용</p>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Visit list */}
           {loading ? (

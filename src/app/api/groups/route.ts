@@ -21,6 +21,9 @@ export const GET = withLogging(async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     const yearParam = searchParams.get("year");
     const churchId = session.churchId;
+    const isSuperAdmin = session.role === "SUPER_ADMIN";
+    const departmentId = session.departmentId;
+    const showAll = isSuperAdmin && !departmentId;
 
     // 연도 필터 조건: 해당 연도에 활동 중인 소그룹
     // start_date <= 연도 말 AND (end_date >= 연도 초 OR end_date IS NULL)
@@ -39,6 +42,7 @@ export const GET = withLogging(async (request: NextRequest) => {
       where: {
         church_id: churchId,
         deleted_at: null,
+        ...(!showAll && departmentId ? { department_id: departmentId } : {}),
         ...yearFilter,
       },
       include: {
@@ -146,6 +150,7 @@ export const POST = withLogging(async (request: NextRequest) => {
         data: {
           id: groupId,
           church_id: session.churchId,
+          department_id: session.departmentId || null,
           name: name.trim(),
           description: description?.trim() || null,
           type: groupType,

@@ -80,7 +80,7 @@ export const POST = withLogging(async (request: NextRequest) => {
       },
     });
 
-    // 교회 멤버로 편입 (MEMBER 역할)
+    // 교회 멤버로 편입 (MEMBER 역할) + 부서 멤버 추가
     const churchMemberId = randomUUID();
     await prisma.church_member.create({
       data: {
@@ -90,6 +90,18 @@ export const POST = withLogging(async (request: NextRequest) => {
         role: "MEMBER",
       },
     });
+
+    // 현재 세션의 부서에 자동 배정
+    if (session.departmentId) {
+      await prisma.department_member.create({
+        data: {
+          id: randomUUID(),
+          department_id: session.departmentId,
+          member_id: memberId,
+          role: "MEMBER",
+        },
+      });
+    }
 
     console.log(`Account created: ${name} (${email}) → Church: ${session.churchName}`);
 

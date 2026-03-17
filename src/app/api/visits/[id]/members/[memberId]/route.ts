@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { requireDepartmentAdmin } from "@/lib/require-department-admin";
 import { withLogging } from "@/lib/api-logger";
 
 export const DELETE = withLogging(async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> },
 ) => {
-  const guard = await requireSuperAdmin();
+  const guard = await requireDepartmentAdmin();
   if (!guard.ok) return guard.response;
 
   const { id: visitId, memberId: visitMemberId } = await params;
@@ -51,7 +51,7 @@ export const PATCH = withLogging(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> },
 ) => {
-  const guard = await requireSuperAdmin();
+  const guard = await requireDepartmentAdmin();
   if (!guard.ok) return guard.response;
 
   const { id: visitId, memberId: visitMemberId } = await params;
