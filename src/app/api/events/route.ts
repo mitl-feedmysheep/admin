@@ -23,33 +23,16 @@ export const GET = withLogging(async (request: NextRequest) => {
       return NextResponse.json({ error: "year, month 파라미터가 필요합니다." }, { status: 400 });
     }
 
-    const isSuperAdmin = session.role === "SUPER_ADMIN";
-    const departmentId = session.departmentId;
-    const showAll = isSuperAdmin && !departmentId;
-
     const startDate = new Date(Date.UTC(year, month - 1, 1));
     const endDate = new Date(Date.UTC(year, month, 0));
 
-    // entity_type + entity_id로 이벤트 소속 구분
-    // showAll: 교회 + 모든 부서 이벤트, 부서 선택 시: 교회 + 해당 부서 이벤트
-    const entityFilter = showAll
-      ? { OR: [
-          { entity_type: "CHURCH", entity_id: session.churchId },
-          { entity_type: "DEPARTMENT" },
-        ] }
-      : departmentId
-        ? { OR: [
-            { entity_type: "CHURCH", entity_id: session.churchId },
-            { entity_type: "DEPARTMENT", entity_id: departmentId },
-          ] }
-        : { entity_type: "CHURCH", entity_id: session.churchId };
-
     const events = await prisma.event.findMany({
       where: {
+        entity_id: session.departmentId,
+        entity_type: "DEPARTMENT",
         deleted_at: null,
         start_date: { lte: endDate },
         end_date: { gte: startDate },
-        ...entityFilter,
       },
       orderBy: [{ start_date: "asc" }, { start_time: "asc" }],
     });
@@ -104,7 +87,8 @@ export const POST = withLogging(async (request: NextRequest) => {
     // Find overlapping events for same entity to determine used colors
     const overlapping = await prisma.event.findMany({
       where: {
-        entity_id: session.churchId,
+        entity_id: session.departmentId,
+        entity_type: "DEPARTMENT",
         deleted_at: null,
         start_date: { lte: newEndDate },
         end_date: { gte: newStartDate },
@@ -116,13 +100,11 @@ export const POST = withLogging(async (request: NextRequest) => {
     const assignedColor = COLOR_ORDER.find((c) => !usedColors.has(c)) || COLOR_ORDER[0];
 
     await prisma.$transaction(async (tx) => {
-      // 부서 소속이면 DEPARTMENT 이벤트, 아니면 CHURCH 이벤트
-      const isDepartmentEvent = !!session.departmentId;
       await tx.event.create({
         data: {
           id: eventId,
-          entity_id: isDepartmentEvent ? session.departmentId! : session.churchId,
-          entity_type: isDepartmentEvent ? "DEPARTMENT" : "CHURCH",
+          entity_id: session.departmentId!,
+          entity_type: "DEPARTMENT",
           title: title.trim(),
           description: description?.trim() || null,
           start_date: newStartDate,

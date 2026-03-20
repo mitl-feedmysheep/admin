@@ -24,7 +24,7 @@ export const PATCH = withLogging(async (
     const { title, startDate, endDate, description, startTime, endTime, location } = body;
 
     const existing = await prisma.event.findFirst({
-      where: { id, entity_id: session.churchId, deleted_at: null },
+      where: { id, entity_id: session.departmentId, entity_type: "DEPARTMENT", deleted_at: null },
     });
 
     if (!existing) {
@@ -81,7 +81,7 @@ export const DELETE = withLogging(async (
     const { id } = await params;
 
     const existing = await prisma.event.findFirst({
-      where: { id, entity_id: session.churchId, deleted_at: null },
+      where: { id, entity_id: session.departmentId, entity_type: "DEPARTMENT", deleted_at: null },
     });
 
     if (!existing) {
