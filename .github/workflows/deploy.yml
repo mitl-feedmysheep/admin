@@ -111,6 +111,7 @@ jobs:
           eval docker run -d \
             --name intotheheaven-admin \
             --restart unless-stopped \
+            --network mitl-net \
             -p 3000:3000 \
             $ENV_ARGS \
             intotheheaven-admin:${{ github.sha }}
