@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
 import { randomUUID } from "crypto";
 import { withLogging } from "@/lib/api-logger";
+import { requireDepartmentLeader } from "@/lib/require-department-leader";
 
 /**
  * GET /api/announcements
  * 부서 공지사항 목록 조회 (최신순)
  */
 export const GET = withLogging(async (request: NextRequest) => {
+  const guard = await requireDepartmentLeader();
+  if (!guard.ok) return guard.response;
   try {
-    const session = await getSession();
-    if (!session || !session.departmentId) {
+    const session = guard.session;
+    if (!session.departmentId) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
@@ -32,6 +34,7 @@ export const GET = withLogging(async (request: NextRequest) => {
         body: a.body,
         sendAt: a.send_at.toISOString(),
         isSent: a.is_sent,
+        pushEnabled: a.push_enabled,
         createdAt: a.created_at.toISOString(),
       })),
     });
@@ -47,14 +50,16 @@ export const GET = withLogging(async (request: NextRequest) => {
  * Body: { title, body, sendAt, createEvent?, startDate?, endDate? }
  */
 export const POST = withLogging(async (request: NextRequest) => {
+  const guard = await requireDepartmentLeader();
+  if (!guard.ok) return guard.response;
   try {
-    const session = await getSession();
-    if (!session || !session.departmentId) {
+    const session = guard.session;
+    if (!session.departmentId) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
     const body = await request.json();
-    const { title, body: announcementBody, sendAt, createEvent, startDate, endDate } = body;
+    const { title, body: announcementBody, sendAt, createEvent, startDate, endDate, pushEnabled = true } = body;
 
     if (!title?.trim()) {
       return NextResponse.json({ error: "제목을 입력해주세요." }, { status: 400 });
@@ -80,6 +85,8 @@ export const POST = withLogging(async (request: NextRequest) => {
           title: title.trim(),
           body: announcementBody.trim(),
           send_at: new Date(sendAt),
+          push_enabled: pushEnabled,
+          is_sent: !pushEnabled,
         },
       });
 

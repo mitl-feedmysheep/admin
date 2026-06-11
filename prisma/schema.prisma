@@ -34,6 +34,7 @@ model member {
   notifications                       notification[]          @relation("notification_receiver")
   prayers                             prayer[]
   sermon_note                         sermon_note[]
+  reading_completion_histories        reading_completion_history[]
 
   @@index([phone, deleted_at], map: "idx_member_phone")
 }
@@ -421,11 +422,12 @@ model department {
   created_at             DateTime                @default(now()) @db.DateTime(0)
   updated_at             DateTime?               @default(now()) @updatedAt @db.DateTime(0)
   deleted_at             DateTime?               @db.DateTime(0)
-  church_member_requests church_member_request[]
-  church                 church                  @relation(fields: [church_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "department_ibfk_1")
-  department_members     department_member[]
-  groups                 group[]
-  notifications          notification[]
+  church_member_requests   church_member_request[]
+  church                   church                  @relation(fields: [church_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "department_ibfk_1")
+  department_members       department_member[]
+  groups                   group[]
+  notifications            notification[]
+  department_reading_plans department_reading_plan[]
 
   @@unique([church_id, name, deleted_at], map: "uk_department_church_name")
   @@index([church_id, deleted_at], map: "idx_department_church_deleted")
@@ -467,6 +469,79 @@ model sermon_note {
   @@index([member_id, deleted_at, sermon_date(sort: Desc)], map: "idx_sermon_note_member_date")
 }
 
+/// 통독 계획
+model reading_plan {
+  id           String               @id @db.Char(36)
+  church_id    String               @db.Char(36)
+  title        String               @db.VarChar(100)
+  reading_days Int                  @default(63)
+  created_at   DateTime             @default(now()) @db.DateTime(6)
+  updated_at   DateTime             @default(now()) @updatedAt @db.DateTime(6)
+  deleted_at   DateTime?            @db.DateTime(6)
+
+  days        reading_plan_day[]
+  mappings    department_reading_plan[]
+
+  @@index([church_id], map: "idx_reading_plan_church")
+}
+
+/// 통독 계획 하루 분량
+model reading_plan_day {
+  id              String               @id @db.Char(36)
+  reading_plan_id String               @db.Char(36)
+  day_number      Int
+  reading_range   String               @db.VarChar(200)
+  audio_url       String?              @db.VarChar(500)
+  video_url       String?              @db.VarChar(500)
+  description     String?              @db.Text
+  created_at      DateTime             @default(now()) @db.DateTime(6)
+  updated_at      DateTime             @default(now()) @updatedAt @db.DateTime(6)
+  deleted_at      DateTime?            @db.DateTime(6)
+
+  reading_plan    reading_plan                 @relation(fields: [reading_plan_id], references: [id], map: "fk_reading_plan_day_plan")
+  completions     reading_completion_history[]
+
+  @@index([reading_plan_id, day_number], map: "idx_reading_plan_day_plan_num")
+}
+
+/// 부서-통독 플랜 매핑 (행 존재=활성, start_date~end_date로 운영 기간 구분)
+model department_reading_plan {
+  id              String       @id @db.Char(36)
+  department_id   String       @db.Char(36)
+  reading_plan_id String       @db.Char(36)
+  start_date      DateTime     @db.Date
+  end_date        DateTime     @db.Date
+  created_at      DateTime     @default(now()) @db.DateTime(6)
+  updated_at      DateTime     @default(now()) @updatedAt @db.DateTime(6)
+  deleted_at      DateTime?    @db.DateTime(6)
+
+  department      department                    @relation(fields: [department_id], references: [id], map: "fk_dept_reading_plan_dept")
+  reading_plan    reading_plan                  @relation(fields: [reading_plan_id], references: [id], map: "fk_dept_reading_plan_plan")
+  completions     reading_completion_history[]
+
+  @@index([department_id], map: "idx_dept_reading_plan_dept")
+  @@index([reading_plan_id], map: "idx_dept_reading_plan_plan")
+}
+
+/// 멤버 완독 기록 이력 (활성화 기간 단위 구분, unmark 시 hard delete)
+model reading_completion_history {
+  id                         String                 @id @db.Char(36)
+  department_reading_plan_id String                 @db.Char(36)
+  reading_plan_day_id        String                 @db.Char(36)
+  member_id                  String                 @db.Char(36)
+  completed_at               DateTime               @db.DateTime(6)
+  created_at                 DateTime               @default(now()) @db.DateTime(6)
+  updated_at                 DateTime               @default(now()) @updatedAt @db.DateTime(6)
+  deleted_at                 DateTime?              @db.DateTime(6)
+
+  department_reading_plan    department_reading_plan @relation(fields: [department_reading_plan_id], references: [id], map: "fk_reading_completion_dept_plan")
+  reading_plan_day           reading_plan_day        @relation(fields: [reading_plan_day_id], references: [id], map: "fk_reading_completion_history_day")
+  member                     member                  @relation(fields: [member_id], references: [id], map: "fk_reading_completion_history_member")
+
+  @@unique([department_reading_plan_id, reading_plan_day_id, member_id], map: "uq_completion_activation_day_member")
+  @@index([member_id], map: "idx_reading_completion_history_member")
+}
+
 /// 공지사항
 model announcement {
   id          String    @id @db.Char(36)
@@ -474,8 +549,9 @@ model announcement {
   entity_id   String    @db.Char(36)
   title       String    @db.VarChar(100)
   body        String    @db.Text
-  send_at     DateTime  @db.DateTime(0)
-  is_sent     Boolean   @default(false)
+  send_at      DateTime  @db.DateTime(0)
+  is_sent      Boolean   @default(false)
+  push_enabled Boolean   @default(true)
   created_at  DateTime  @default(now()) @db.DateTime(0)
   updated_at  DateTime  @default(now()) @updatedAt @db.DateTime(0)
   deleted_at  DateTime? @db.DateTime(0)
