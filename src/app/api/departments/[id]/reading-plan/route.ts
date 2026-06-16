@@ -46,33 +46,6 @@ export const POST = withLogging(async (
       },
     });
 
-    // 부서 활성 멤버에게 알림 생성
-    const members = await prisma.department_member.findMany({
-      where: { department_id: departmentId, status: "ACTIVE", deleted_at: null },
-      select: { member_id: true },
-    });
-    const notifNow = new Date();
-    await Promise.allSettled(
-      members.map((m) =>
-        prisma.notification.create({
-          data: {
-            id: randomUUID(),
-            receiver_id: m.member_id,
-            sender_id: guard.session.memberId,
-            department_id: departmentId,
-            type: "READING_PLAN_ACTIVATED",
-            description: `${dept.name}에 ${plan.title}이 활성화되었어요. 📚`,
-            entity_type: "DEPARTMENT",
-            entity_id: departmentId,
-            target_url: "/reading",
-            is_read: false,
-            created_at: notifNow,
-            updated_at: notifNow,
-          },
-        })
-      )
-    );
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(error);
