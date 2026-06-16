@@ -28,7 +28,7 @@ export const GET = withLogging(async (
       },
       include: { reading_plan: true },
     });
-    if (!mapping) return NextResponse.json({ success: true, data: [] });
+    if (!mapping) return NextResponse.json({ success: true, meta: null, data: [] });
 
     const totalDays = await prisma.reading_plan_day.count({
       where: { reading_plan_id: mapping.reading_plan_id, deleted_at: null },
@@ -37,6 +37,20 @@ export const GET = withLogging(async (
     const activeMembers = await prisma.department_member.findMany({
       where: { department_id: departmentId, status: "ACTIVE", deleted_at: null },
       include: { member: true },
+    });
+
+    const startOfToday = new Date(today);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const todayCompletions = await prisma.reading_completion_history.findMany({
+      where: {
+        department_reading_plan_id: mapping.id,
+        completed_at: { gte: startOfToday, lte: endOfToday },
+      },
+      select: { member_id: true },
+      distinct: ["member_id"],
     });
 
     const progressData = await Promise.all(
@@ -60,7 +74,18 @@ export const GET = withLogging(async (
 
     progressData.sort((a: { progressPercent: number }, b: { progressPercent: number }) => b.progressPercent - a.progressPercent);
 
-    return NextResponse.json({ success: true, data: progressData });
+    return NextResponse.json({
+      success: true,
+      meta: {
+        todayCount: todayCompletions.length,
+        totalMembers: activeMembers.length,
+        totalDays,
+        planTitle: mapping.reading_plan.title,
+        startDate: mapping.start_date.toISOString().slice(0, 10),
+        endDate: mapping.end_date.toISOString().slice(0, 10),
+      },
+      data: progressData,
+    });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "조회 실패" }, { status: 500 });

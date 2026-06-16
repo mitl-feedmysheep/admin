@@ -21,9 +21,11 @@ import {
   Loader2,
   BookMarked,
   Upload,
+  ChevronLeft,
   ChevronRight,
   Download,
   ImagePlus,
+  Info,
   X,
   Pencil,
   Check,
@@ -59,6 +61,59 @@ interface DepartmentInfo {
   activePlanId: string | null;
 }
 
+interface DeptMemberProgress {
+  memberId: string;
+  memberName: string;
+  completedCount: number;
+  totalDays: number;
+  progressPercent: number;
+}
+
+interface DeptStatsMeta {
+  todayCount: number;
+  totalMembers: number;
+  totalDays: number;
+  planTitle: string;
+  startDate: string;
+  endDate: string;
+}
+
+interface DeptStats {
+  meta: DeptStatsMeta;
+  data: DeptMemberProgress[];
+}
+
+interface GroupWeeklyProgress {
+  groupId: string;
+  groupName: string;
+  totalMembers: number;
+  scheduledDays: number;
+  completedCount: number;
+  completionRate: number;
+}
+
+interface WeeklyGroupData {
+  weekStart: string;
+  weekEnd: string;
+  scheduledDayCount: number;
+  data: GroupWeeklyProgress[];
+}
+
+function getCurrentMondayStr(): string {
+  const d = new Date();
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
+}
+
+function formatWeekLabel(weekStart: string, weekEnd: string): string {
+  const [, wsM, wsD] = weekStart.split("-").map(Number);
+  const [, weM, weD] = weekEnd.split("-").map(Number);
+  const weekNum = Math.ceil(wsD / 7);
+  return `${wsM}월 ${weekNum}주차  (${wsM}/${wsD}~${weM}/${weD})`;
+}
+
 export function ReadingManageClient() {
   const [plans, setPlans] = useState<ReadingPlan[]>([]);
   const [departments, setDepartments] = useState<DepartmentInfo[]>([]);
@@ -69,7 +124,12 @@ export function ReadingManageClient() {
   const [activateStartDate, setActivateStartDate] = useState("");
   const [activateEndDate, setActivateEndDate] = useState("");
   const [activatingDept, setActivatingDept] = useState<{ id: string; name: string } | null>(null);
-  const [statsSheet, setStatsSheet] = useState<{ open: boolean; dept: DepartmentInfo | null }>({ open: false, dept: null });
+  const [activeTab, setActiveTab] = useState<"stats" | "plan">("stats");
+  const [deptStats, setDeptStats] = useState<Record<string, DeptStats | null>>({});
+  const [statsLoading, setStatsLoading] = useState<Record<string, boolean>>({});
+  const [weekStartStr, setWeekStartStr] = useState<string>(getCurrentMondayStr);
+  const [weeklyData, setWeeklyData] = useState<Record<string, WeeklyGroupData | null>>({});
+  const [weeklyLoading, setWeeklyLoading] = useState<Record<string, boolean>>({});
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean; title: string; description: string;
@@ -91,6 +151,7 @@ export function ReadingManageClient() {
   const [editingDayId, setEditingDayId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ readingRange: "", description: "", audioUrl: "", videoUrl: "" });
   const [editSaving, setEditSaving] = useState(false);
+  const batchFileInputRef = useRef<HTMLInputElement>(null);
 
   const showAlert = (title: string, description: string, variant: ConfirmDialogVariant = "info") => {
     setConfirmDialog({ open: true, title, description, mode: "alert", variant, onConfirm: undefined });
@@ -106,7 +167,27 @@ export function ReadingManageClient() {
       const plansJson = await plansRes.json();
       const deptsJson = await deptsRes.json();
       if (plansJson.success) setPlans(plansJson.data);
-      if (deptsJson.success) setDepartments(deptsJson.data);
+      if (deptsJson.success) {
+        const depts: DepartmentInfo[] = deptsJson.data;
+        setDepartments(depts);
+        const activeDepts = depts.filter((d) => d.activePlanTitle);
+        if (activeDepts.length > 0) {
+          const loadingMap: Record<string, boolean> = {};
+          activeDepts.forEach((d) => (loadingMap[d.id] = true));
+          setStatsLoading(loadingMap);
+          await Promise.all(
+            activeDepts.map(async (dept) => {
+              try {
+                const res = await fetch(`/api/departments/${dept.id}/reading-plan/progress`);
+                const json = await res.json();
+                if (json.success) setDeptStats((prev) => ({ ...prev, [dept.id]: json }));
+              } finally {
+                setStatsLoading((prev) => ({ ...prev, [dept.id]: false }));
+              }
+            })
+          );
+        }
+      }
     } catch {
       setPlans([]);
     } finally {
@@ -114,9 +195,35 @@ export function ReadingManageClient() {
     }
   }, []);
 
+  const fetchWeeklyData = useCallback(async (depts: DepartmentInfo[], weekStart: string) => {
+    const activeDepts = depts.filter((d) => d.activePlanTitle);
+    if (activeDepts.length === 0) return;
+    const loadingMap: Record<string, boolean> = {};
+    activeDepts.forEach((d) => (loadingMap[d.id] = true));
+    setWeeklyLoading((prev) => ({ ...prev, ...loadingMap }));
+    await Promise.all(
+      activeDepts.map(async (dept) => {
+        try {
+          const res = await fetch(
+            `/api/departments/${dept.id}/reading-plan/weekly-group-progress?weekStart=${weekStart}`
+          );
+          const json = await res.json();
+          if (json.success) setWeeklyData((prev) => ({ ...prev, [dept.id]: json }));
+        } finally {
+          setWeeklyLoading((prev) => ({ ...prev, [dept.id]: false }));
+        }
+      })
+    );
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (departments.length === 0) return;
+    fetchWeeklyData(departments, weekStartStr);
+  }, [departments, weekStartStr, fetchWeeklyData]);
 
   const handleCreatePlan = async () => {
     if (!createForm.title || createForm.readingDays === 0) return;
@@ -155,11 +262,13 @@ export function ReadingManageClient() {
       });
       const json = await res.json();
       if (json.success) {
+        const planTitle = plans.find((p) => p.id === selectedPlanId)?.title ?? "";
         setActivatingDept(null);
         setSelectedPlanId("");
         setActivateStartDate("");
         setActivateEndDate("");
         fetchData();
+        toast.success(`${activatingDept.name}에 [${planTitle}]이 활성화됐습니다.`);
       } else {
         showAlert("오류", json.error || "활성화 실패", "danger");
       }
@@ -396,114 +505,276 @@ export function ReadingManageClient() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BookMarked className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-semibold">성경통독플랜 관리</h1>
-        </div>
-        <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-1" /> 플랜 생성
-        </Button>
+      <div className="flex items-center gap-2">
+        <BookMarked className="h-5 w-5 text-primary" />
+        <h1 className="text-xl font-semibold">성경통독플랜 관리</h1>
       </div>
 
-      {/* 부서별 현황 */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">부서별 현황</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {departments.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">부서 데이터가 없습니다.</p>
-          ) : (
-            <div className="space-y-2">
-              {departments.map((dept) => {
-                const isActive = !!dept.activePlanTitle;
-                return (
-                  <div
-                    key={dept.id}
-                    className="flex items-center justify-between rounded-lg border px-4 py-3"
-                  >
-                    {/* 왼쪽: 이름 + 배지 — 활성이면 클릭 가능 */}
-                    <button
-                      type="button"
-                      disabled={!isActive}
-                      onClick={() => isActive && setStatsSheet({ open: true, dept })}
-                      className={`flex items-center gap-3 text-left ${isActive ? "cursor-pointer group" : "cursor-default"}`}
-                    >
-                      <span className={`font-medium text-sm ${isActive ? "group-hover:text-primary transition-colors" : ""}`}>
-                        {dept.name}
-                      </span>
+      {/* 탭 */}
+      <div className="flex gap-6 border-b -mt-2">
+        {(["stats", "plan"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`pb-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === tab
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab === "stats" ? "통계" : "플랜관리"}
+          </button>
+        ))}
+      </div>
+
+      {/* ── 통계 탭 ── */}
+      {activeTab === "stats" && (
+        departments.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">부서 데이터가 없습니다.</CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {departments.map((dept) => {
+              const isActive = !!dept.activePlanTitle;
+              const stats = deptStats[dept.id];
+              const isLoadingStats = statsLoading[dept.id];
+              const avgProgress =
+                stats && stats.meta.totalMembers > 0
+                  ? Math.round(stats.data.reduce((s, m) => s + m.progressPercent, 0) / stats.meta.totalMembers)
+                  : 0;
+
+              return (
+                <Card key={dept.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-base">{dept.name}</CardTitle>
                       {isActive ? (
                         <Badge variant="secondary" className="text-xs">{dept.activePlanTitle}</Badge>
                       ) : (
                         <Badge variant="outline" className="text-xs text-muted-foreground">비활성</Badge>
                       )}
-                      {isActive && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />}
-                    </button>
-
-                    {/* 오른쪽: 토글 버튼 */}
-                    {isActive ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive shrink-0"
-                        onClick={() => handleDeactivate(dept.id, dept.name, dept.activePlanTitle!)}
-                      >
-                        비활성화
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                        onClick={() => {
-                          setActivatingDept({ id: dept.id, name: dept.name });
-                          setSelectedPlanId("");
-                          setActivateStartDate("");
-                          setActivateEndDate("");
-                        }}
-                      >
-                        활성화
-                      </Button>
+                    </div>
+                    {isActive && stats?.meta && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {stats.meta.startDate} ~ {stats.meta.endDate}
+                      </p>
                     )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </CardHeader>
+                  <CardContent>
+                    {!isActive ? (
+                      <p className="text-sm text-center text-muted-foreground py-4">
+                        활성화된 플랜이 없습니다. <span className="underline cursor-pointer" onClick={() => setActiveTab("plan")}>플랜관리</span> 탭에서 활성화해 주세요.
+                      </p>
+                    ) : (
+                    <div className="space-y-5">
+                      {/* 평균 진도 */}
+                      {isLoadingStats ? (
+                        <div className="flex justify-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        </div>
+                      ) : stats ? (
+                        <div className="rounded-lg border bg-blue-50 dark:bg-blue-950/20 p-3 text-center">
+                          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{avgProgress}%</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">전체 평균 진도</p>
+                        </div>
+                      ) : null}
 
-      {/* 등록된 플랜 목록 */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">등록된 플랜</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {plans.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">등록된 플랜이 없습니다.</p>
-          ) : (
-            <div className="space-y-2">
-              {plans.map((plan) => (
-                <button
-                  key={plan.id}
-                  type="button"
-                  onClick={() => openPlanDetail(plan)}
-                  className="w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left hover:bg-muted/50 transition-colors"
-                >
-                  <div>
-                    <p className="font-medium text-sm">{plan.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      등록: {new Date(plan.createdAt).toLocaleDateString("ko-KR")} &middot; {readingDaysToLabel(plan.readingDays)}요일
-                    </p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </button>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      {/* 소모임별 주차 진도 */}
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">소모임별 주차 진도</p>
+                        {/* 주차 내비게이션 */}
+                        <div className="flex items-center justify-between rounded-lg border px-3 py-2 mb-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const d = new Date(weekStartStr + "T00:00:00");
+                              d.setDate(d.getDate() - 7);
+                              setWeekStartStr(d.toISOString().slice(0, 10));
+                            }}
+                            className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+                          <span className="text-xs font-medium">
+                            {weeklyData[dept.id]
+                              ? formatWeekLabel(weeklyData[dept.id]!.weekStart, weeklyData[dept.id]!.weekEnd)
+                              : weeklyLoading[dept.id] ? "로딩 중..." : ""}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const d = new Date(weekStartStr + "T00:00:00");
+                              d.setDate(d.getDate() + 7);
+                              setWeekStartStr(d.toISOString().slice(0, 10));
+                            }}
+                            disabled={weekStartStr >= getCurrentMondayStr()}
+                            className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        {/* 계산 기준 안내 */}
+                        <div className="flex items-center gap-1.5 mb-3">
+                          <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <p className="text-xs text-muted-foreground">이번 주 오늘까지 읽어야 할 날짜 기준으로 집계됩니다.</p>
+                        </div>
+
+                        {/* 소모임 목록 */}
+                        {weeklyLoading[dept.id] ? (
+                          <div className="flex justify-center py-4">
+                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                          </div>
+                        ) : !weeklyData[dept.id] || weeklyData[dept.id]!.data.length === 0 ? (
+                          <p className="text-sm text-center text-muted-foreground py-3">등록된 소모임이 없습니다.</p>
+                        ) : weeklyData[dept.id]!.scheduledDayCount === 0 ? (
+                          <p className="text-sm text-center text-muted-foreground py-3">이 주는 읽기 일정이 없습니다.</p>
+                        ) : (
+                          <div className="space-y-2.5">
+                            {weeklyData[dept.id]!.data.map((group) => (
+                              <div key={group.groupId} className="flex items-center gap-3">
+                                <span className="text-sm w-20 shrink-0 truncate">{group.groupName}</span>
+                                <div className="flex-1 h-1.5 bg-muted rounded-full">
+                                  <div
+                                    className="h-1.5 bg-primary rounded-full transition-all"
+                                    style={{ width: `${group.completionRate}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-muted-foreground shrink-0 text-right">
+                                  {group.completedCount}/{group.totalMembers}명 · {group.completionRate}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {/* ── 플랜관리 탭 ── */}
+      {activeTab === "plan" && (
+        <div className="space-y-6">
+
+          {/* 등록 방법 안내 */}
+          <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
+            <p className="text-sm font-semibold">플랜 등록 방법</p>
+            <ol className="space-y-2 text-sm text-muted-foreground list-none">
+              <li className="flex gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">1</span>
+                <span><span className="font-medium text-foreground">플랜 생성</span> — 플랜 이름과 읽기 요일을 설정합니다.</span>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">2</span>
+                <span><span className="font-medium text-foreground">분량 등록</span> — 생성된 플랜을 클릭하여 엑셀로 날짜별 읽기 분량을 일괄 등록합니다.</span>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">3</span>
+                <span><span className="font-medium text-foreground">부서 활성화</span> — 부서에 플랜과 운영 기간을 지정하면 앱 유저에게 매일 읽기 분량이 노출됩니다.</span>
+              </li>
+            </ol>
+          </div>
+
+          {/* 부서 플랜 현황 */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">부서 플랜 현황</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {departments.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">부서 데이터가 없습니다.</p>
+              ) : (
+                <div className="space-y-2">
+                  {departments.map((dept) => {
+                    const isActive = !!dept.activePlanTitle;
+                    return (
+                      <div key={dept.id} className="flex items-center justify-between rounded-lg border px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium text-sm">{dept.name}</span>
+                          {isActive ? (
+                            <Badge variant="secondary" className="text-xs">{dept.activePlanTitle}</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">비활성</Badge>
+                          )}
+                        </div>
+                        {isActive ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive shrink-0"
+                            onClick={() => handleDeactivate(dept.id, dept.name, dept.activePlanTitle!)}
+                          >
+                            비활성화
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() => {
+                              setActivatingDept({ id: dept.id, name: dept.name });
+                              setSelectedPlanId("");
+                              setActivateStartDate("");
+                              setActivateEndDate("");
+                            }}
+                          >
+                            활성화
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 등록된 플랜 목록 */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">등록된 플랜</CardTitle>
+                <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-1" /> 플랜 생성
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {plans.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">등록된 플랜이 없습니다.</p>
+              ) : (
+                <div className="space-y-2">
+                  {plans.map((plan) => (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => openPlanDetail(plan)}
+                      className="w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{plan.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          등록: {new Date(plan.createdAt).toLocaleDateString("ko-KR")} &middot; {readingDaysToLabel(plan.readingDays)}요일
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+        </div>
+      )}
 
       {/* 플랜 생성 다이얼로그 */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -592,9 +863,11 @@ export function ReadingManageClient() {
                 ⚠ 컬럼 이름을 임의로 변경하면 업로드가 실패합니다.
               </p>
               <div className="relative">
-                <Input
+                <input
+                  ref={batchFileInputRef}
                   type="file"
                   accept=".xlsx,.xls"
+                  className="hidden"
                   disabled={saving}
                   onChange={(e) => {
                     const file = e.target.files?.[0] ?? null;
@@ -603,11 +876,17 @@ export function ReadingManageClient() {
                     e.target.value = "";
                   }}
                 />
-                {saving && (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/70">
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  </div>
-                )}
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => batchFileInputRef.current?.click()}
+                  className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Upload className="h-4 w-4 shrink-0" />
+                  {saving
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> 업로드 중...</>
+                    : "눌러서 파일을 선택하세요."}
+                </button>
               </div>
             </div>
 
@@ -804,21 +1083,6 @@ export function ReadingManageClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* 부서 통계 Sheet */}
-      <Sheet open={statsSheet.open} onOpenChange={(o) => setStatsSheet((s) => ({ ...s, open: o }))}>
-        <SheetContent className="w-[480px] sm:w-[560px]">
-          <SheetHeader>
-            <SheetTitle>{statsSheet.dept?.name} 통계</SheetTitle>
-            {statsSheet.dept?.activePlanTitle && (
-              <p className="text-xs text-muted-foreground">{statsSheet.dept.activePlanTitle}</p>
-            )}
-          </SheetHeader>
-          <div className="mt-6 flex items-center justify-center text-sm text-muted-foreground">
-            통계 내용 준비 중
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* 라이트박스 */}
       <Dialog open={!!lightboxUrl} onOpenChange={(o) => !o && setLightboxUrl(null)}>
