@@ -544,18 +544,20 @@ model reading_completion_history {
 
 /// 공지사항
 model announcement {
-  id          String    @id @db.Char(36)
-  entity_type String    @db.VarChar(20)
-  entity_id   String    @db.Char(36)
-  title       String    @db.VarChar(100)
-  body        String    @db.Text
+  id           String    @id @db.Char(36)
+  entity_type  String    @db.VarChar(20)
+  entity_id    String    @db.Char(36)
+  type         String    @default("ANNOUNCEMENT") @db.VarChar(20)
+  title        String    @db.VarChar(100)
+  body         String    @db.Text
   send_at      DateTime  @db.DateTime(0)
   is_sent      Boolean   @default(false)
   push_enabled Boolean   @default(true)
-  created_at  DateTime  @default(now()) @db.DateTime(0)
-  updated_at  DateTime  @default(now()) @updatedAt @db.DateTime(0)
-  deleted_at  DateTime? @db.DateTime(0)
+  created_at   DateTime  @default(now()) @db.DateTime(0)
+  updated_at   DateTime  @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at   DateTime? @db.DateTime(0)
 
   @@index([entity_type, entity_id], map: "idx_announcement_entity")
+  @@index([entity_type, entity_id, type], map: "idx_announcement_entity_type")
   @@index([send_at, is_sent], map: "idx_announcement_send_at_is_sent")
 }

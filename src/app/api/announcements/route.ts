@@ -21,6 +21,7 @@ export const GET = withLogging(async (request: NextRequest) => {
       where: {
         entity_type: "DEPARTMENT",
         entity_id: session.departmentId,
+        type: "ANNOUNCEMENT",
         deleted_at: null,
       },
       orderBy: { created_at: "desc" },
@@ -59,7 +60,7 @@ export const POST = withLogging(async (request: NextRequest) => {
     }
 
     const body = await request.json();
-    const { title, body: announcementBody, sendAt, createEvent, startDate, endDate, pushEnabled = true } = body;
+    const { id: providedId, title, body: announcementBody, sendAt, createEvent, startDate, endDate, pushEnabled = true } = body;
 
     if (!title?.trim()) {
       return NextResponse.json({ error: "제목을 입력해주세요." }, { status: 400 });
@@ -74,7 +75,7 @@ export const POST = withLogging(async (request: NextRequest) => {
       return NextResponse.json({ error: "캘린더 이벤트의 날짜를 입력해주세요." }, { status: 400 });
     }
 
-    const announcementId = randomUUID();
+    const announcementId = providedId ?? randomUUID();
 
     await prisma.$transaction(async (tx) => {
       await tx.announcement.create({
@@ -82,6 +83,7 @@ export const POST = withLogging(async (request: NextRequest) => {
           id: announcementId,
           entity_type: "DEPARTMENT",
           entity_id: session.departmentId!,
+          type: "ANNOUNCEMENT",
           title: title.trim(),
           body: announcementBody.trim(),
           send_at: new Date(sendAt),
