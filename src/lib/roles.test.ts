@@ -128,8 +128,8 @@ describe("canAccessVisitPrayer", () => {
     expect(canAccessVisitPrayer("SUPER_ADMIN")).toBe(true);
   });
 
-  it("church ADMIN alone cannot access", () => {
-    expect(canAccessVisitPrayer("ADMIN")).toBe(false);
+  it("church ADMIN can access", () => {
+    expect(canAccessVisitPrayer("ADMIN")).toBe(true);
   });
 
   it("department ADMIN can access", () => {
