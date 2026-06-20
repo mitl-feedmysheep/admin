@@ -57,13 +57,13 @@ export function canAccessAdminPortal(
 
 /**
  * 심방/기도제목 관리 접근 가능 여부 체크
- * dept ADMIN+ OR church SUPER_ADMIN
+ * dept ADMIN+ OR church ADMIN+
  */
 export function canAccessVisitPrayer(
   churchRole: string,
   departmentRole?: string,
 ): boolean {
-  if (churchRole === "SUPER_ADMIN") return true;
+  if (hasPermissionOver(churchRole, "ADMIN")) return true;
   if (departmentRole && hasDepartmentPermissionOver(departmentRole, "ADMIN")) return true;
   return false;
 }

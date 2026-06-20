@@ -21,6 +21,8 @@ import {
   Building2,
   ChevronDown,
   UserPlus,
+  Megaphone,
+  BookMarked,
 } from "lucide-react";
 import { canAccessVisitPrayer } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,8 @@ const navigation: NavItem[] = [
   { type: "link", name: "멤버 관리", href: "/manage/member", icon: Users },
   { type: "link", name: "새가족 관리", href: "/manage/newcomer", icon: GraduationCap },
   { type: "link", name: "이벤트 관리", href: "/manage/event", icon: CalendarDays },
+  { type: "link", name: "공지사항 관리", href: "/manage/announcement", icon: Megaphone },
+  { type: "link", name: "성경통독플랜", href: "/manage/reading", icon: BookMarked },
 ];
 
 type NavItem = { type: "link"; name: string; href: string; icon: typeof LayoutDashboard } | { type: "divider" };
