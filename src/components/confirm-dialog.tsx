@@ -106,6 +106,7 @@ export function ConfirmDialog({
             </Button>
           )}
           <Button
+            autoFocus
             onClick={handleConfirm}
             disabled={loading}
             className={`min-w-[72px] ${config.buttonClass}`}

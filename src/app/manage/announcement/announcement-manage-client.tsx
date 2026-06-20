@@ -160,24 +160,31 @@ export function AnnouncementManageClient() {
   };
 
   const handleDelete = (id: string, title: string) => {
-    setConfirmDialog({
-      open: true, title: "공지사항 삭제",
-      description: `"${title}"을 삭제하시겠습니까?`,
-      mode: "confirm", variant: "danger",
-      onConfirm: async () => {
-        try {
-          await fetch(`/api/announcements/${id}`, { method: "DELETE" });
-          closeDetail();
-          fetchList();
-        } catch {
-          showAlert("오류", "삭제 중 오류가 발생했습니다.", "danger");
-        }
-      },
-    });
+    setTimeout(() => {
+      setConfirmDialog({
+        open: true, title: "공지사항 삭제",
+        description: `"${title}"을 삭제하시겠습니까?`,
+        mode: "confirm", variant: "danger",
+        onConfirm: async () => {
+          try {
+            const res = await fetch(`/api/announcements/${id}`, { method: "DELETE" });
+            const json = await res.json();
+            if (!json.success) {
+              showAlert("오류", json.error || "삭제에 실패했습니다.", "danger");
+              return;
+            }
+            closeDetail();
+            fetchList();
+          } catch {
+            showAlert("오류", "삭제 중 오류가 발생했습니다.", "danger");
+          }
+        },
+      });
+    }, 0);
   };
 
   const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
-  const minutes = ["00", "10", "20", "30", "40", "50"];
+  const minutes = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
 
   return (
     <div className="space-y-6">
@@ -211,6 +218,7 @@ export function AnnouncementManageClient() {
                   <span className="shrink-0 text-xs text-muted-foreground">{formatDatetime(item.createdAt)}</span>
                 </div>
                 <Button variant="ghost" size="icon" className="shrink-0 text-destructive hover:text-destructive"
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); handleDelete(item.id, item.title); }}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
