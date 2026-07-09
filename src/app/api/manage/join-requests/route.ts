@@ -14,6 +14,12 @@ export const GET = withLogging(async () => {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
+    const isSuperAdmin = session.role === "SUPER_ADMIN";
+    const isDeptAdmin = session.departmentRole === "ADMIN";
+    if (!isSuperAdmin && !isDeptAdmin) {
+      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+    }
+
     const churchId = session.churchId;
 
     const requests = await prisma.church_member_request.findMany({
@@ -21,6 +27,8 @@ export const GET = withLogging(async () => {
         church_id: churchId,
         status: "PENDING",
         deleted_at: null,
+        // dept ADMIN은 자기 부서 요청만 조회
+        ...(isDeptAdmin && !isSuperAdmin ? { department_id: session.departmentId } : {}),
       },
       include: {
         member: {

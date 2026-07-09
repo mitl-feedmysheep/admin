@@ -13,6 +13,9 @@ const authRoutes = ["/login"];
 // 심방/기도제목: dept ADMIN+ OR church SUPER_ADMIN
 const visitPrayerRoutes = ["/manage/visit", "/manage/prayer"];
 
+// 교회 편입 관리: dept ADMIN OR church SUPER_ADMIN only
+const churchManageRoutes = ["/manage/church"];
+
 // 부서 설정: church SUPER_ADMIN only
 const superAdminRoutes = ["/manage/departments"];
 
@@ -57,6 +60,19 @@ export async function middleware(request: NextRequest) {
   );
 
   if (isVisitPrayerRoute) {
+    const isSuperAdmin = role === "SUPER_ADMIN";
+    const isDeptAdmin = departmentRole === "ADMIN";
+    if (!isSuperAdmin && !isDeptAdmin) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  }
+
+  // 교회 편입 관리: dept ADMIN OR church SUPER_ADMIN only
+  const isChurchManageRoute = churchManageRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+
+  if (isChurchManageRoute) {
     const isSuperAdmin = role === "SUPER_ADMIN";
     const isDeptAdmin = departmentRole === "ADMIN";
     if (!isSuperAdmin && !isDeptAdmin) {

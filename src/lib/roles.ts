@@ -67,3 +67,16 @@ export function canAccessVisitPrayer(
   if (departmentRole && hasDepartmentPermissionOver(departmentRole, "ADMIN")) return true;
   return false;
 }
+
+/**
+ * 교회 편입 관리 접근 가능 여부 체크
+ * dept ADMIN OR church SUPER_ADMIN only
+ */
+export function canAccessChurchManage(
+  churchRole: string,
+  departmentRole?: string,
+): boolean {
+  if (churchRole === "SUPER_ADMIN") return true;
+  if (departmentRole === "ADMIN") return true;
+  return false;
+}

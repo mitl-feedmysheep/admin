@@ -16,6 +16,12 @@ export const POST = withLogging(async (request: NextRequest) => {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
+    const isSuperAdmin = session.role === "SUPER_ADMIN";
+    const isDeptAdmin = session.departmentRole === "ADMIN";
+    if (!isSuperAdmin && !isDeptAdmin) {
+      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+    }
+
     const body = await request.json();
     const { requestId } = body;
 
@@ -26,13 +32,14 @@ export const POST = withLogging(async (request: NextRequest) => {
       );
     }
 
-    // PENDING 상태인 편입 요청 조회
+    // PENDING 상태인 편입 요청 조회 (dept ADMIN은 자기 부서 요청만)
     const joinRequest = await prisma.church_member_request.findFirst({
       where: {
         id: requestId,
         church_id: session.churchId,
         status: "PENDING",
         deleted_at: null,
+        ...(isDeptAdmin && !isSuperAdmin ? { department_id: session.departmentId } : {}),
       },
     });
 

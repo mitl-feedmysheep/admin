@@ -25,7 +25,7 @@ import {
   BookMarked,
   Newspaper,
 } from "lucide-react";
-import { canAccessVisitPrayer } from "@/lib/roles";
+import { canAccessVisitPrayer, canAccessChurchManage } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCallback, useEffect, useState } from "react";
@@ -223,6 +223,7 @@ export function Sidebar({
 
   // Build navigation based on permissions
   const showVisitPrayer = canAccessVisitPrayer(role ?? "", departmentRole);
+  const showChurchManage = canAccessChurchManage(role ?? "", departmentRole);
   const isSuperAdmin = role === "SUPER_ADMIN";
 
   return (
@@ -386,7 +387,9 @@ export function Sidebar({
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {[
-          ...navigation.slice(0, navigation.findIndex(n => n.type === "link" && n.href === "/manage/group")),
+          ...navigation
+            .slice(0, navigation.findIndex(n => n.type === "link" && n.href === "/manage/group"))
+            .filter(n => n.type !== "link" || n.href !== "/manage/church" || showChurchManage),
           ...(isSuperAdmin ? superAdminNavigation : []),
           ...navigation.slice(navigation.findIndex(n => n.type === "link" && n.href === "/manage/group")),
           ...(showVisitPrayer ? visitPrayerNavigation : []),
