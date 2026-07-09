@@ -11,7 +11,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { UserPlus, Plus, Copy, Check, UserCheck, Clock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { ConfirmDialog, ConfirmDialogVariant } from "@/components/confirm-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+
+// 동명 중복 확인 타입
+interface DuplicateMember {
+  id: string;
+  name: string;
+  sex: "MALE" | "FEMALE";
+  birthday: string;
+  phone: string;
+  email: string;
+}
 
 // 편입 요청 타입
 interface JoinRequest {
@@ -106,6 +117,27 @@ export function ChurchManageClient() {
 
   // Email duplicate check state
   const [emailStatus, setEmailStatus] = useState<"idle" | "checking" | "available" | "duplicate">("idle");
+
+  // Name duplicate check state
+  const [nameDuplicates, setNameDuplicates] = useState<DuplicateMember[] | null>(null);
+  const [nameCheckConfirmed, setNameCheckConfirmed] = useState(false);
+  const [nameDuplicateDialogOpen, setNameDuplicateDialogOpen] = useState(false);
+
+  const handleCheckNameDuplicate = async (name: string) => {
+    if (!name.trim() || nameCheckConfirmed) return;
+    try {
+      const res = await fetch(`/api/manage/check-name-duplicate?name=${encodeURIComponent(name.trim())}`);
+      const data = await res.json();
+      if (res.ok && data.exists) {
+        setNameDuplicates(data.members);
+        setNameDuplicateDialogOpen(true);
+      } else {
+        setNameDuplicates([]);
+      }
+    } catch {
+      // 에러 시 조용히 무시 (생성 시 서버에서 다시 확인 가능)
+    }
+  };
 
   const handleCheckEmail = async () => {
     const email = accountForm.email.trim();
@@ -213,6 +245,8 @@ export function ChurchManageClient() {
     setAccountCreated(null);
     setCopied(false);
     setEmailStatus("idle");
+    setNameDuplicates(null);
+    setNameCheckConfirmed(false);
     setAccountForm({
       name: "",
       email: "",
@@ -289,6 +323,7 @@ export function ChurchManageClient() {
   const stripPhoneHyphens = (phone: string) => phone.replace(/-/g, "");
 
   const isFormValid = useMemo(() => {
+    const nameDuplicateBlocked = nameDuplicates !== null && nameDuplicates.length > 0 && !nameCheckConfirmed;
     return (
       accountForm.name.trim() !== "" &&
       accountForm.email.trim() !== "" &&
@@ -296,9 +331,10 @@ export function ChurchManageClient() {
       accountForm.sex !== "" &&
       accountForm.birthday !== "" &&
       stripPhoneHyphens(accountForm.phone).length >= 10 &&
-      emailStatus !== "duplicate"
+      emailStatus !== "duplicate" &&
+      !nameDuplicateBlocked
     );
-  }, [accountForm.name, accountForm.email, accountForm.password, accountForm.sex, accountForm.birthday, accountForm.phone, emailStatus]);
+  }, [accountForm.name, accountForm.email, accountForm.password, accountForm.sex, accountForm.birthday, accountForm.phone, emailStatus, nameDuplicates, nameCheckConfirmed]);
 
   const formatBirthday = (birthday: string) => {
     const date = new Date(birthday);
@@ -384,7 +420,23 @@ export function ChurchManageClient() {
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-2 min-w-0">
                       <Label htmlFor="name">이름 *</Label>
-                      <Input id="name" value={accountForm.name} onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })} placeholder="이름을 입력하세요" required />
+                      <Input
+                        id="name"
+                        value={accountForm.name}
+                        onChange={(e) => {
+                          setAccountForm({ ...accountForm, name: e.target.value });
+                          setNameDuplicates(null);
+                          setNameCheckConfirmed(false);
+                        }}
+                        onBlur={(e) => handleCheckNameDuplicate(e.target.value)}
+                        placeholder="이름을 입력하세요"
+                        required
+                      />
+                      {nameDuplicates !== null && nameDuplicates.length > 0 && !nameCheckConfirmed && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          같은 이름의 회원이 이미 존재합니다. 아래 확인 버튼을 눌러주세요.
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2 min-w-0">
                       <Label htmlFor="email">이메일 *</Label>
@@ -639,6 +691,55 @@ export function ChurchManageClient() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 동명인 중복 확인 다이얼로그 */}
+      <Dialog open={nameDuplicateDialogOpen} onOpenChange={setNameDuplicateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900 dark:text-white">같은 이름의 회원이 존재합니다</DialogTitle>
+            <DialogDescription className="text-slate-500">
+              현재 부서에 아래 회원과 이름이 동일합니다. 이분들과 다른 사람을 새로 생성하는 게 맞나요?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {nameDuplicates?.map((m) => (
+              <div key={m.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="font-semibold text-slate-900 dark:text-white">{m.name}</span>
+                  <Badge variant="outline" className="text-xs">{m.sex === "MALE" ? "남성" : "여성"}</Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+                  <div><span className="text-slate-400">생년월일</span> {m.birthday}</div>
+                  <div><span className="text-slate-400">연락처</span> {m.phone}</div>
+                  <div className="col-span-2"><span className="text-slate-400">이메일</span> {m.email}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNameDuplicateDialogOpen(false);
+                setAccountForm((prev) => ({ ...prev, name: "" }));
+                setNameDuplicates(null);
+                setNameCheckConfirmed(false);
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              className="bg-slate-800 hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500"
+              onClick={() => {
+                setNameCheckConfirmed(true);
+                setNameDuplicateDialogOpen(false);
+              }}
+            >
+              네, 다른 사람입니다
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={dialogState.open}
