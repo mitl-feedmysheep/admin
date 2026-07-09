@@ -20,12 +20,9 @@ export const GET = withLogging(async () => {
       },
       include: {
         department_reading_plans: {
-          where: {
-            deleted_at: null,
-            start_date: { lte: new Date() },
-            end_date: { gte: new Date() },
-          },
+          where: { deleted_at: null },
           include: { reading_plan: true },
+          orderBy: { created_at: "desc" },
           take: 1,
         },
       },
