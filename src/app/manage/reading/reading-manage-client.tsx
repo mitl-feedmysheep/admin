@@ -541,7 +541,7 @@ export function ReadingManageClient() {
               const stats = deptStats[dept.id];
               const isLoadingStats = statsLoading[dept.id];
               const avgProgress =
-                stats && stats.meta.totalMembers > 0
+                stats?.meta && stats.meta.totalMembers > 0
                   ? Math.round(stats.data.reduce((s, m) => s + m.progressPercent, 0) / stats.meta.totalMembers)
                   : 0;
 
