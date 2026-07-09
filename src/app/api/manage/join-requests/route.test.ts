@@ -16,6 +16,8 @@ const session = {
   churchId: "church-001",
   churchName: "교회",
   role: "ADMIN",
+  departmentRole: "ADMIN",
+  departmentId: "dept-001",
   iat: 0,
   exp: 0,
 };
