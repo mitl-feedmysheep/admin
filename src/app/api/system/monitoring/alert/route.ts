@@ -10,7 +10,8 @@ export const POST = withLogging(async (request: NextRequest) => {
     }
 
     const body = await request.json();
-    const { services, detectedAt } = body;
+    const { services, detectedAt, type } = body;
+    const isRecovery = type === "recovery";
 
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
@@ -25,8 +26,16 @@ export const POST = withLogging(async (request: NextRequest) => {
     await transporter.sendMail({
       from: process.env.ALERT_EMAIL_USER,
       to: process.env.ALERT_EMAIL_TO,
-      subject: `[IntoTheHeaven] 서비스 장애 감지: ${services}`,
-      html: `
+      subject: isRecovery
+        ? `[IntoTheHeaven] 서비스 복구: ${services}`
+        : `[IntoTheHeaven] 서비스 장애 감지: ${services}`,
+      html: isRecovery
+        ? `
+        <h2>서비스 복구 알림</h2>
+        <p><strong>복구된 서비스:</strong> ${services}</p>
+        <p><strong>복구 확인 시각:</strong> ${detectedAt}</p>
+      `
+        : `
         <h2>서비스 장애 알림</h2>
         <p><strong>다운된 서비스:</strong> ${services}</p>
         <p><strong>감지 시각:</strong> ${detectedAt}</p>
