@@ -48,7 +48,7 @@ export const GET = withLogging(async (request: NextRequest) => {
 /**
  * POST /api/announcements
  * 공지사항 생성 (+ 선택적으로 캘린더 이벤트 동시 생성)
- * Body: { title, body, sendAt, createEvent?, startDate?, endDate? }
+ * Body: { title, body, sendAt, createEvent?, startDate?, endDate?, startTime?, endTime?, location? }
  */
 export const POST = withLogging(async (request: NextRequest) => {
   const guard = await requireDepartmentLeader();
@@ -60,7 +60,10 @@ export const POST = withLogging(async (request: NextRequest) => {
     }
 
     const body = await request.json();
-    const { id: providedId, title, body: announcementBody, sendAt, createEvent, startDate, endDate, pushEnabled = true } = body;
+    const {
+      id: providedId, title, body: announcementBody, sendAt, createEvent,
+      startDate, endDate, startTime, endTime, location, pushEnabled = true,
+    } = body;
 
     if (!title?.trim()) {
       return NextResponse.json({ error: "제목을 입력해주세요." }, { status: 400 });
@@ -116,8 +119,12 @@ export const POST = withLogging(async (request: NextRequest) => {
             entity_type: "DEPARTMENT",
             entity_id: session.departmentId!,
             title: title.trim(),
+            description: announcementBody.trim(),
             start_date: newStart,
             end_date: newEnd,
+            start_time: startTime ? parseTime(startTime) : null,
+            end_time: endTime ? parseTime(endTime) : null,
+            location: location?.trim() || null,
             color: assignedColor,
           },
         });
@@ -141,3 +148,8 @@ export const POST = withLogging(async (request: NextRequest) => {
     return NextResponse.json({ error: "공지사항 생성 중 오류가 발생했습니다." }, { status: 500 });
   }
 });
+
+function parseTime(time: string): Date {
+  const [h, m] = time.split(":").map(Number);
+  return new Date(Date.UTC(1970, 0, 1, h, m, 0));
+}

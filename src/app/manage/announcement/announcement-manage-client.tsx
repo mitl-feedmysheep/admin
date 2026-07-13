@@ -13,6 +13,18 @@ import { ConfirmDialog, ConfirmDialogVariant } from "@/components/confirm-dialog
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { buildKstIso, formatKstDateTime } from "@/lib/datetime";
+import { TimePicker } from "@/components/time-picker/time-picker";
+
+function timeStringToDate(time: string): Date | undefined {
+  if (!time) return undefined;
+  const [h, m] = time.split(":").map(Number);
+  return new Date(new Date().setHours(h, m, 0, 0));
+}
+
+function dateToTimeString(date: Date | undefined): string {
+  if (!date) return "";
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
 
 interface AnnouncementItem {
   id: string;
@@ -174,6 +186,9 @@ function AnnouncementTab() {
     createEvent: false,
     startDate: "",
     endDate: "",
+    startTime: "",
+    endTime: "",
+    location: "",
   });
 
   const showAlert = (title: string, description: string, variant: ConfirmDialogVariant = "info") => {
@@ -196,7 +211,10 @@ function AnnouncementTab() {
   useEffect(() => { fetchList(); }, [fetchList]);
 
   const resetForm = () => {
-    setForm({ title: "", body: "", sendDate: "", sendHour: "09", sendMinute: "00", pushEnabled: false, createEvent: false, startDate: "", endDate: "" });
+    setForm({
+      title: "", body: "", sendDate: "", sendHour: "09", sendMinute: "00", pushEnabled: false,
+      createEvent: false, startDate: "", endDate: "", startTime: "", endTime: "", location: "",
+    });
   };
 
   const openDetail = (item: AnnouncementItem) => {
@@ -237,6 +255,9 @@ function AnnouncementTab() {
           createEvent: form.createEvent,
           startDate: form.createEvent ? form.startDate : undefined,
           endDate: form.createEvent ? form.endDate : undefined,
+          startTime: form.createEvent ? form.startTime : undefined,
+          endTime: form.createEvent ? form.endTime : undefined,
+          location: form.createEvent ? form.location : undefined,
         }),
       });
       const json = await res.json();
@@ -473,6 +494,32 @@ function AnnouncementTab() {
                         onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} />
                     </div>
                   </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-xs">시작 시간</Label>
+                      <TimePicker
+                        date={timeStringToDate(form.startTime)}
+                        setDate={(d) => setForm((f) => ({ ...f, startTime: dateToTimeString(d) }))}
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-xs">종료 시간</Label>
+                      <TimePicker
+                        date={timeStringToDate(form.endTime)}
+                        setDate={(d) => setForm((f) => ({ ...f, endTime: dateToTimeString(d) }))}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">시간을 입력하지 않으면 00:00으로 저장됩니다.</p>
+                  <div className="space-y-1">
+                    <Label className="text-xs">장소</Label>
+                    <Input value={form.location}
+                      onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+                      placeholder="예: 본당, 소예배실" maxLength={200} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    ※ 공지사항 내용이 캘린더 이벤트의 설명으로도 함께 저장됩니다.
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     ※ 공지사항 삭제 시 캘린더 이벤트는 삭제되지 않습니다. 별도로 삭제해주세요.
                   </p>
