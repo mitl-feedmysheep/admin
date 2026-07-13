@@ -11,6 +11,7 @@ import { ConfirmDialog, ConfirmDialogVariant } from "@/components/confirm-dialog
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { buildKstIso, formatKstDate } from "@/lib/datetime";
 
 interface BulletinItem {
   id: string;
@@ -34,11 +35,6 @@ const months = Array.from({ length: 12 }, (_, i) => i + 1);
 const weeks = [1, 2, 3, 4, 5];
 const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
 const minutes = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
-}
 
 function BulletinImageSection({ bulletinId }: { bulletinId: string }) {
   const [images, setImages] = useState<MediaItem[]>([]);
@@ -217,7 +213,7 @@ export function BulletinManageClient() {
     }
 
     const sendAt = form.pushEnabled
-      ? `${form.sendDate}T${form.sendHour}:${form.sendMinute}:00`
+      ? buildKstIso(form.sendDate, form.sendHour, form.sendMinute)
       : undefined;
 
     setSaving(true);
@@ -330,7 +326,7 @@ export function BulletinManageClient() {
                       <Clock className="mr-1 h-3 w-3" />예약 중
                     </Badge>
                   )}
-                  <span className="shrink-0 text-xs text-muted-foreground">{formatDate(item.createdAt)}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{formatKstDate(item.createdAt)}</span>
                 </div>
                 <Button
                   variant="ghost"
@@ -361,7 +357,7 @@ export function BulletinManageClient() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">등록일</p>
-                <p className="text-sm">{formatDate(detailItem.createdAt)}</p>
+                <p className="text-sm">{formatKstDate(detailItem.createdAt)}</p>
               </div>
               {detailItem.body && (
                 <div>
@@ -372,7 +368,7 @@ export function BulletinManageClient() {
               {detailItem.pushEnabled && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">푸시 알림</p>
-                  <p className="text-sm">{detailItem.isSent ? "발송 완료" : `${formatDate(detailItem.sendAt)} 예약 중`}</p>
+                  <p className="text-sm">{detailItem.isSent ? "발송 완료" : `${formatKstDate(detailItem.sendAt)} 예약 중`}</p>
                 </div>
               )}
               <div className="h-px bg-border/50" />

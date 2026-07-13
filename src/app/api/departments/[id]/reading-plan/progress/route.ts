@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withLogging } from "@/lib/api-logger";
 import { requireDepartmentAdmin } from "@/lib/require-department-admin";
+import { kstDayRangeUtc, todayKstDateString } from "@/lib/datetime";
 
 export const GET = withLogging(async (
   _request: NextRequest,
@@ -18,7 +19,9 @@ export const GET = withLogging(async (
     });
     if (!dept) return NextResponse.json({ error: "부서를 찾을 수 없습니다." }, { status: 404 });
 
-    const today = new Date();
+    const todayKst = todayKstDateString();
+    const today = new Date(todayKst); // date-only 컬럼 비교용 (UTC 자정 = KST 날짜와 동일한 날짜 부분)
+    const { start: startOfToday, end: endOfToday } = kstDayRangeUtc(todayKst);
     const mapping = await prisma.department_reading_plan.findFirst({
       where: {
         department_id: departmentId,
@@ -38,11 +41,6 @@ export const GET = withLogging(async (
       where: { department_id: departmentId, status: "ACTIVE", deleted_at: null },
       include: { member: true },
     });
-
-    const startOfToday = new Date(today);
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date(today);
-    endOfToday.setHours(23, 59, 59, 999);
 
     const todayCompletions = await prisma.reading_completion_history.findMany({
       where: {

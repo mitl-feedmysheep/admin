@@ -38,6 +38,7 @@ import {
   ConfirmDialogVariant,
 } from "@/components/confirm-dialog";
 import { TimePicker } from "@/components/time-picker/time-picker";
+import { buildKstIso, formatKstTime } from "@/lib/datetime";
 
 function timeStringToDate(time: string): Date | undefined {
   if (!time) return undefined;
@@ -51,7 +52,8 @@ function dateToTimeString(date: Date | undefined): string {
 }
 
 function toLocalDateTimeString(date: string, time: string): string {
-  return `${date}T${time}:00`;
+  const [hour, minute] = time.split(":");
+  return buildKstIso(date, hour, minute);
 }
 
 interface VisitListItem {
@@ -627,15 +629,9 @@ export function VisitManageClient() {
                   <div>
                     <p className="text-slate-500">시간</p>
                     <p className="font-medium">
-                      {new Date(selectedVisit.startedAt).toLocaleTimeString(
-                        "ko-KR",
-                        { hour: "2-digit", minute: "2-digit" },
-                      )}{" "}
+                      {formatKstTime(selectedVisit.startedAt)}{" "}
                       ~{" "}
-                      {new Date(selectedVisit.endedAt).toLocaleTimeString(
-                        "ko-KR",
-                        { hour: "2-digit", minute: "2-digit" },
-                      )}
+                      {formatKstTime(selectedVisit.endedAt)}
                     </p>
                   </div>
                   <div>
@@ -1267,8 +1263,6 @@ export function VisitManageClient() {
             <div className="space-y-2">
               {visits.map((v) => {
                 const d = new Date(v.date + "T00:00:00");
-                const started = new Date(v.startedAt);
-                const ended = new Date(v.endedAt);
                 return (
                   <div
                     key={v.id}
@@ -1290,15 +1284,7 @@ export function VisitManageClient() {
                         </h4>
                         <div className="flex flex-wrap gap-2 sm:gap-3 mt-1 text-xs text-slate-500">
                           <span>
-                            {started.toLocaleTimeString("ko-KR", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}{" "}
-                            ~{" "}
-                            {ended.toLocaleTimeString("ko-KR", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            {formatKstTime(v.startedAt)} ~ {formatKstTime(v.endedAt)}
                           </span>
                           <span>{v.memberCount}명</span>
                           {v.expense > 0 && (

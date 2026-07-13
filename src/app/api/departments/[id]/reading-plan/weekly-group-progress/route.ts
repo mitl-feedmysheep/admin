@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withLogging } from "@/lib/api-logger";
 import { requireDepartmentAdmin } from "@/lib/require-department-admin";
+import { todayKstDateString } from "@/lib/datetime";
 
 // 플랜 시작일 기준으로 특정 날짜가 몇 일차인지 계산 (backend의 computeDayNumber와 동일 로직)
 function computeDayNumber(startDate: Date, targetDate: Date, mask: number): number {
@@ -35,10 +36,13 @@ export const GET = withLogging(async (
     const url = new URL(request.url);
     const weekStartParam = url.searchParams.get("weekStart"); // YYYY-MM-DD (월요일)
 
+    // "오늘"은 KST 달력 기준으로 고정 (서버 프로세스 타임존과 무관하게 일치시키기 위함)
+    const today = new Date(todayKstDateString());
+
     const weekStart = weekStartParam
       ? new Date(weekStartParam + "T00:00:00")
       : (() => {
-          const d = new Date();
+          const d = new Date(today);
           const day = d.getDay();
           d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
           d.setHours(0, 0, 0, 0);
@@ -48,8 +52,6 @@ export const GET = withLogging(async (
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
-
-    const today = new Date();
     const mapping = await prisma.department_reading_plan.findFirst({
       where: {
         department_id: departmentId,

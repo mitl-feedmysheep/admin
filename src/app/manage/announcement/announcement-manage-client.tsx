@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { ConfirmDialog, ConfirmDialogVariant } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { buildKstIso, formatKstDateTime } from "@/lib/datetime";
 
 interface AnnouncementItem {
   id: string;
@@ -35,11 +36,6 @@ interface BroadcastItem {
 interface MediaItem {
   id: string;
   url: string;
-}
-
-function formatDatetime(iso: string) {
-  const d = new Date(iso);
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
@@ -224,8 +220,8 @@ function AnnouncementTab() {
     }
 
     const sendAt = form.pushEnabled
-      ? `${form.sendDate}T${form.sendHour}:${form.sendMinute}:00`
-      : new Date().toISOString().slice(0, 19);
+      ? buildKstIso(form.sendDate, form.sendHour, form.sendMinute)
+      : new Date().toISOString();
 
     setSaving(true);
     try {
@@ -333,7 +329,7 @@ function AnnouncementTab() {
                   {item.pushEnabled && !item.isSent && (
                     <Badge variant="outline" className="shrink-0 text-xs"><Clock className="mr-1 h-3 w-3" />예약 중</Badge>
                   )}
-                  <span className="shrink-0 text-xs text-muted-foreground">{formatDatetime(item.createdAt)}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{formatKstDateTime(item.createdAt)}</span>
                 </div>
                 <Button variant="ghost" size="icon" className="shrink-0 text-destructive hover:text-destructive"
                   onPointerDown={(e) => e.stopPropagation()}
@@ -378,7 +374,7 @@ function AnnouncementTab() {
                   {detailItem.pushEnabled && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">발송 예약</p>
-                      <p className="text-sm">{formatDatetime(detailItem.sendAt)}</p>
+                      <p className="text-sm">{formatKstDateTime(detailItem.sendAt)}</p>
                     </div>
                   )}
                   <div className="h-px bg-border/50" />
@@ -560,7 +556,7 @@ function PushBroadcastTab() {
     if (!form.body.trim()) { showAlert("입력 오류", "내용을 입력해주세요.", "warning"); return; }
     if (!form.sendDate) { showAlert("입력 오류", "발송 예약 날짜를 선택해주세요.", "warning"); return; }
 
-    const sendAt = `${form.sendDate}T${form.sendHour}:${form.sendMinute}:00`;
+    const sendAt = buildKstIso(form.sendDate, form.sendHour, form.sendMinute);
 
     setSaving(true);
     try {
@@ -639,7 +635,7 @@ function PushBroadcastTab() {
                   {item.isSent ? (
                     <Badge variant="secondary" className="shrink-0 text-xs"><Send className="mr-1 h-3 w-3" />발송 완료</Badge>
                   ) : (
-                    <Badge variant="outline" className="shrink-0 text-xs"><Clock className="mr-1 h-3 w-3" />{formatDatetime(item.sendAt)} 예약</Badge>
+                    <Badge variant="outline" className="shrink-0 text-xs"><Clock className="mr-1 h-3 w-3" />{formatKstDateTime(item.sendAt)} 예약</Badge>
                   )}
                 </div>
                 {!item.isSent && (
@@ -673,7 +669,7 @@ function PushBroadcastTab() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">발송 예약</p>
-                <p className="text-sm">{formatDatetime(detailItem.sendAt)}</p>
+                <p className="text-sm">{formatKstDateTime(detailItem.sendAt)}</p>
               </div>
               <div className="h-px bg-border/50" />
               <ImageSection announcementId={detailItem.id} />
