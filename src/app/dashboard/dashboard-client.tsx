@@ -103,7 +103,7 @@ function getWeeksOfMonth(year: number, month: number, limitToToday: boolean = fa
     }
     
     const dayOfWeek = currentStart.getDay();
-    const daysUntilSaturday = (6 - dayOfWeek + 7) % 7 || 7;
+    const daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
     
     let currentEnd = new Date(currentStart);
     currentEnd.setDate(currentStart.getDate() + daysUntilSaturday);
