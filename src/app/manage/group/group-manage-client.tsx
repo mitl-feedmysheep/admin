@@ -40,6 +40,35 @@ interface GroupMemberRow {
 
 const formatSex = (sex: string) => (sex === "M" ? "남" : "여");
 
+/** 전화번호 포맷: 01088831954 → 010-8883-1954 */
+const formatPhone = (raw: string) => {
+  if (!raw) return "-";
+  if (raw.includes("-")) return raw;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 11) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return raw;
+};
+
+const SexBadge = ({ sex }: { sex: string }) => (
+  <span
+    className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
+      sex === "M"
+        ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300"
+        : "bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300"
+    }`}
+  >
+    {formatSex(sex)}
+  </span>
+);
+
+const sortLeaderFirst = (members: GroupMemberRow[]) =>
+  [...members].sort((a, b) => (a.role === "LEADER" ? 0 : 1) - (b.role === "LEADER" ? 0 : 1));
+
 export function GroupManageClient() {
   // 공통 다이얼로그 상태
   const [dialogState, setDialogState] = useState<{
@@ -222,7 +251,7 @@ export function GroupManageClient() {
     try {
       const res = await fetch(`/api/groups/${groupId}`);
       const data = await res.json();
-      setExpandedGroupMembers(res.ok && data.success ? data.data.members : []);
+      setExpandedGroupMembers(res.ok && data.success ? sortLeaderFirst(data.data.members) : []);
     } catch {
       console.error("소그룹 멤버 조회 실패");
       setExpandedGroupMembers([]);
@@ -516,8 +545,11 @@ export function GroupManageClient() {
                                   <div className="flex items-center gap-3">
                                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-sm font-medium">{member.name.charAt(0)}</div>
                                     <div>
-                                      <p className="font-medium text-slate-900 dark:text-white text-sm">{member.name}</p>
-                                      <p className="text-xs text-slate-500">{formatSex(member.sex)} · {member.phone || "-"} · {formatDate(member.joinedAt)} 추가</p>
+                                      <div className="flex items-center gap-1.5">
+                                        <p className="font-medium text-slate-900 dark:text-white text-sm">{member.name}</p>
+                                        <SexBadge sex={member.sex} />
+                                      </div>
+                                      <p className="text-xs text-slate-500">{formatPhone(member.phone)} · ({formatDate(member.joinedAt)} 편입)</p>
                                     </div>
                                   </div>
                                   <Badge className={member.role === "LEADER" ? "bg-slate-800 text-white dark:bg-indigo-600" : member.role === "SUB_LEADER" ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"}>
