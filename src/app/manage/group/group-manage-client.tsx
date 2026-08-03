@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { UsersRound, UserCog, Plus, Check, Search, UserMinus, X, Loader2, Trash2, CalendarIcon, Pencil } from "lucide-react";
+import { UsersRound, UserCog, Plus, Check, Search, UserMinus, X, Loader2, Trash2, CalendarIcon, Pencil, List, ChevronDown, ChevronRight } from "lucide-react";
 import { ConfirmDialog, ConfirmDialogVariant } from "@/components/confirm-dialog";
 import { ContactAdminDialog } from "@/components/contact-admin-dialog";
 
@@ -25,6 +25,20 @@ interface Group {
   leaderId: string;
   createdAt: string;
 }
+
+// 소그룹 소속 멤버 타입
+interface GroupMemberRow {
+  groupMemberId: string;
+  memberId: string;
+  name: string;
+  sex: string;
+  phone: string;
+  birthday: string;
+  role: string;
+  joinedAt: string;
+}
+
+const formatSex = (sex: string) => (sex === "M" ? "남" : "여");
 
 export function GroupManageClient() {
   // 공통 다이얼로그 상태
@@ -49,7 +63,7 @@ export function GroupManageClient() {
   };
 
   // 하위 탭 상태
-  const [groupSubTab, setGroupSubTab] = useState("create-group");
+  const [groupSubTab, setGroupSubTab] = useState("group-list");
 
   // 소그룹 생성 폼 상태
   const [groupForm, setGroupForm] = useState({
@@ -75,6 +89,11 @@ export function GroupManageClient() {
   const [editingGroupName, setEditingGroupName] = useState("");
   const [isSavingGroupName, setIsSavingGroupName] = useState(false);
 
+  // 소그룹 목록 탭 - 그룹별 멤버 펼쳐보기 상태
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const [expandedGroupMembers, setExpandedGroupMembers] = useState<GroupMemberRow[]>([]);
+  const [expandedGroupLoading, setExpandedGroupLoading] = useState(false);
+
   // 멤버 할당 상태
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{ id: string; name: string; sex: string; birthday: string; phone: string; primaryGroup: string; role: string }[]>([]);
@@ -92,9 +111,7 @@ export function GroupManageClient() {
 
   // 멤버 제외용 상태
   const [removeGroupFilter, setRemoveGroupFilter] = useState("");
-  const [membersInSelectedGroup, setMembersInSelectedGroup] = useState<
-    { groupMemberId: string; memberId: string; name: string; sex: string; phone: string; birthday: string; role: string }[]
-  >([]);
+  const [membersInSelectedGroup, setMembersInSelectedGroup] = useState<GroupMemberRow[]>([]);
   const [removeGroupLoading, setRemoveGroupLoading] = useState(false);
   const [memberRemoveDialogOpen, setMemberRemoveDialogOpen] = useState(false);
   const [removingMemberName, setRemovingMemberName] = useState("");
@@ -192,6 +209,27 @@ export function GroupManageClient() {
       setMembersInSelectedGroup([]);
     }
   }, [removeGroupFilter, fetchGroupMembers]);
+
+  // 소그룹 목록 탭 - 그룹 클릭 시 멤버 펼쳐보기/접기
+  const handleToggleGroupExpand = async (groupId: string) => {
+    if (expandedGroupId === groupId) {
+      setExpandedGroupId(null);
+      setExpandedGroupMembers([]);
+      return;
+    }
+    setExpandedGroupId(groupId);
+    setExpandedGroupLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${groupId}`);
+      const data = await res.json();
+      setExpandedGroupMembers(res.ok && data.success ? data.data.members : []);
+    } catch {
+      console.error("소그룹 멤버 조회 실패");
+      setExpandedGroupMembers([]);
+    } finally {
+      setExpandedGroupLoading(false);
+    }
+  };
 
   // 소그룹 목록 불러오기
   const fetchGroups = useCallback(async (year?: string) => {
@@ -346,8 +384,8 @@ export function GroupManageClient() {
 
   const dateToApi = (value: string) => value.replaceAll("/", "-");
 
-  const formatBirthday = (birthday: string) => {
-    const date = new Date(birthday);
+  const formatDate = (value: string) => {
+    const date = new Date(value);
     return `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()}`;
   };
 
@@ -361,7 +399,14 @@ export function GroupManageClient() {
       </div>
 
       <Tabs value={groupSubTab} onValueChange={setGroupSubTab}>
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[560px]">
+          <TabsTrigger
+            value="group-list"
+            className="gap-2 transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            <List className="h-4 w-4" />
+            소그룹 목록
+          </TabsTrigger>
           <TabsTrigger
             value="create-group"
             className="gap-2 transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -378,9 +423,123 @@ export function GroupManageClient() {
           </TabsTrigger>
         </TabsList>
 
+        {/* 소그룹 목록 */}
+        <TabsContent value="group-list" className="mt-6">
+          <Card className="border-slate-200 dark:border-slate-800">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-slate-900 dark:text-white">소그룹 목록</CardTitle>
+                  <CardDescription>{groupYearFilter}년 소그룹 ({groups.length}개). 소그룹을 클릭하면 소속 멤버를 볼 수 있습니다.</CardDescription>
+                </div>
+                <Select value={groupYearFilter} onValueChange={setGroupYearFilter}>
+                  <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: new Date().getFullYear() - 2025 + 1 }, (_, i) => {
+                      const y = String(new Date().getFullYear() - i);
+                      return <SelectItem key={y} value={y}>{y}년</SelectItem>;
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {groupsLoading ? (
+                <div className="py-8 text-center">
+                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
+                  <p className="mt-2 text-sm text-slate-500">불러오는 중...</p>
+                </div>
+              ) : groups.length === 0 ? (
+                <div className="py-8 text-center">
+                  <UsersRound className="mx-auto h-8 w-8 text-slate-300" />
+                  <p className="mt-2 text-sm text-slate-500">등록된 소그룹이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {groups.map((group) => (
+                    <div key={group.id} className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      <div
+                        className="p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                        onClick={() => { if (editingGroupId !== group.id) handleToggleGroupExpand(group.id); }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                            {expandedGroupId === group.id ? (
+                              <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+                            )}
+                            {editingGroupId === group.id ? (
+                              <div className="flex items-center gap-1.5 flex-1 mr-2" onClick={(e) => e.stopPropagation()}>
+                                <Input value={editingGroupName} onChange={(e) => setEditingGroupName(e.target.value)} className="h-8 text-sm" autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleSaveGroupName(group.id); if (e.key === "Escape") { setEditingGroupId(null); setEditingGroupName(""); } }} disabled={isSavingGroupName} />
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" onClick={() => handleSaveGroupName(group.id)} disabled={isSavingGroupName || !editingGroupName.trim()}>
+                                  {isSavingGroupName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { setEditingGroupId(null); setEditingGroupName(""); }} disabled={isSavingGroupName}>
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <p className="font-medium text-slate-900 dark:text-white truncate">{group.name}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <Badge variant="outline" className="text-slate-500">{group.memberCount}명</Badge>
+                            {editingGroupId !== group.id && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => { setDeletingGroupName(group.name); setGroupDeleteDialogOpen(true); }}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        {group.leaderName && <p className="text-sm text-slate-500 mt-1 ml-5.5">리더: {group.leaderName}</p>}
+                        <p className="text-xs text-slate-400 mt-1 ml-5.5">
+                          {group.startDate ? group.startDate.replaceAll("-", "/") : "미정"} ~ {group.endDate ? group.endDate.replaceAll("-", "/") : "진행중"}
+                        </p>
+                      </div>
+                      {expandedGroupId === group.id && (
+                        <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
+                          {expandedGroupLoading ? (
+                            <div className="p-6 text-center text-slate-500">
+                              <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                              멤버 목록을 불러오는 중...
+                            </div>
+                          ) : expandedGroupMembers.length === 0 ? (
+                            <div className="p-6 text-center text-slate-500 text-sm">소속된 멤버가 없습니다.</div>
+                          ) : (
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                              {expandedGroupMembers.map((member) => (
+                                <div key={member.groupMemberId} className="flex items-center justify-between p-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-sm font-medium">{member.name.charAt(0)}</div>
+                                    <div>
+                                      <p className="font-medium text-slate-900 dark:text-white text-sm">{member.name}</p>
+                                      <p className="text-xs text-slate-500">{formatSex(member.sex)} · {member.phone || "-"} · {formatDate(member.joinedAt)} 추가</p>
+                                    </div>
+                                  </div>
+                                  <Badge className={member.role === "LEADER" ? "bg-slate-800 text-white dark:bg-indigo-600" : member.role === "SUB_LEADER" ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"}>
+                                    {member.role === "LEADER" ? "리더" : member.role === "SUB_LEADER" ? "서브리더" : "멤버"}
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* 소그룹 생성 */}
         <TabsContent value="create-group" className="mt-6">
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="max-w-2xl">
             <Card className="border-slate-200 dark:border-slate-800">
               <CardHeader>
                 <CardTitle className="text-slate-900 dark:text-white">새 소그룹 생성</CardTitle>
@@ -459,76 +618,6 @@ export function GroupManageClient() {
                 </form>
               </CardContent>
             </Card>
-
-            <Card className="border-slate-200 dark:border-slate-800">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-slate-900 dark:text-white">소그룹 목록</CardTitle>
-                    <CardDescription>{groupYearFilter}년 소그룹 ({groups.length}개)</CardDescription>
-                  </div>
-                  <Select value={groupYearFilter} onValueChange={setGroupYearFilter}>
-                    <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: new Date().getFullYear() - 2025 + 1 }, (_, i) => {
-                        const y = String(new Date().getFullYear() - i);
-                        return <SelectItem key={y} value={y}>{y}년</SelectItem>;
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {groupsLoading ? (
-                  <div className="py-8 text-center">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
-                    <p className="mt-2 text-sm text-slate-500">불러오는 중...</p>
-                  </div>
-                ) : groups.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <UsersRound className="mx-auto h-8 w-8 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500">등록된 소그룹이 없습니다.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {groups.map((group) => (
-                      <div key={group.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                        <div className="flex items-center justify-between">
-                          {editingGroupId === group.id ? (
-                            <div className="flex items-center gap-1.5 flex-1 mr-2">
-                              <Input value={editingGroupName} onChange={(e) => setEditingGroupName(e.target.value)} className="h-8 text-sm" autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleSaveGroupName(group.id); if (e.key === "Escape") { setEditingGroupId(null); setEditingGroupName(""); } }} disabled={isSavingGroupName} />
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" onClick={() => handleSaveGroupName(group.id)} disabled={isSavingGroupName || !editingGroupName.trim()}>
-                                {isSavingGroupName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { setEditingGroupId(null); setEditingGroupName(""); }} disabled={isSavingGroupName}>
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <p className="font-medium text-slate-900 dark:text-white">{group.name}</p>
-                          )}
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-slate-500">{group.memberCount}명</Badge>
-                            {editingGroupId !== group.id && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}>
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => { setDeletingGroupName(group.name); setGroupDeleteDialogOpen(true); }}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                        {group.leaderName && <p className="text-sm text-slate-500 mt-1">리더: {group.leaderName}</p>}
-                        <p className="text-xs text-slate-400 mt-1">
-                          {group.startDate ? group.startDate.replaceAll("-", "/") : "미정"} ~ {group.endDate ? group.endDate.replaceAll("-", "/") : "진행중"}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
 
@@ -574,7 +663,7 @@ export function GroupManageClient() {
                                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-600 text-sm font-medium">{member.name.charAt(0)}</div>
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-slate-900 dark:text-white">{member.name}</p>
-                                  <p className="text-xs text-slate-500 truncate">{member.sex === "M" ? "남" : "여"} · {formatBirthday(member.birthday)} · {member.phone}</p>
+                                  <p className="text-xs text-slate-500 truncate">{formatSex(member.sex)} · {formatDate(member.birthday)} · {member.phone}</p>
                                 </div>
                                 {member.primaryGroup && <Badge variant="outline" className="text-xs shrink-0">{member.primaryGroup}</Badge>}
                                 {alreadySelected && <Check className="h-4 w-4 text-emerald-500 shrink-0" />}
@@ -730,7 +819,7 @@ export function GroupManageClient() {
                                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-sm font-medium">{member.name.charAt(0)}</div>
                                 <div>
                                   <p className="font-medium text-slate-900 dark:text-white text-sm">{member.name}</p>
-                                  <p className="text-xs text-slate-500">{member.sex === "MALE" ? "남" : "여"} · {member.phone || "-"}</p>
+                                  <p className="text-xs text-slate-500">{formatSex(member.sex)} · {member.phone || "-"} · {formatDate(member.joinedAt)} 추가</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">

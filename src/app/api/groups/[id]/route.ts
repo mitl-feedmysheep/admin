@@ -63,6 +63,7 @@ export const GET = withLogging(async (
       phone: gm.member.phone,
       birthday: gm.member.birthday?.toISOString().split("T")[0] || "",
       role: gm.role,
+      joinedAt: gm.created_at.toISOString().split("T")[0],
     }));
 
     return NextResponse.json({
