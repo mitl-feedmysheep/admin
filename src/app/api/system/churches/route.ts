@@ -16,6 +16,7 @@ export const GET = withLogging(async () => {
         id: true,
         name: true,
         location: true,
+        is_hidden: true,
       },
       orderBy: { created_at: "desc" },
     });

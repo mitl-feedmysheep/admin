@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -15,12 +16,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Search, UserPlus, Church, Shield, KeyRound } from "lucide-react";
+import { Loader2, Search, UserPlus, Church, Shield, KeyRound, List } from "lucide-react";
 
 interface ChurchItem {
   id: string;
   name: string;
   location: string;
+}
+
+interface ChurchListItem extends ChurchItem {
+  is_hidden: boolean;
 }
 
 interface SearchedMember {
@@ -42,13 +47,20 @@ export function SystemChurchClient() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[760px]">
           <TabsTrigger
             value="create"
             className="gap-2 transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
           >
             <Church className="h-4 w-4" />
             교회 생성
+          </TabsTrigger>
+          <TabsTrigger
+            value="list"
+            className="gap-2 transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            <List className="h-4 w-4" />
+            교회 목록
           </TabsTrigger>
           <TabsTrigger
             value="assign"
@@ -68,6 +80,10 @@ export function SystemChurchClient() {
 
         <TabsContent value="create" className="mt-6">
           <CreateChurchTab />
+        </TabsContent>
+
+        <TabsContent value="list" className="mt-6">
+          <ChurchListTab />
         </TabsContent>
 
         <TabsContent value="assign" className="mt-6">
@@ -204,6 +220,122 @@ function CreateChurchTab() {
             </Button>
           </div>
         </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChurchListTab() {
+  const [churches, setChurches] = useState<ChurchListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadChurches();
+  }, []);
+
+  const loadChurches = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/system/churches");
+      const data = await res.json();
+      if (res.ok) {
+        setChurches(data.churches || []);
+      }
+    } catch {
+      toast.error("교회 목록을 불러오지 못했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleToggle = async (church: ChurchListItem, next: boolean) => {
+    setTogglingId(church.id);
+    setChurches((prev) =>
+      prev.map((c) => (c.id === church.id ? { ...c, is_hidden: next } : c))
+    );
+
+    try {
+      const res = await fetch(`/api/system/churches/${church.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isHidden: next }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "숨김 설정 변경에 실패했습니다.");
+        setChurches((prev) =>
+          prev.map((c) =>
+            c.id === church.id ? { ...c, is_hidden: !next } : c
+          )
+        );
+        return;
+      }
+
+      toast.success(
+        next
+          ? `"${church.name}" 교회를 편입 요청 목록에서 숨겼습니다.`
+          : `"${church.name}" 교회를 편입 요청 목록에 다시 노출했습니다.`
+      );
+    } catch {
+      toast.error("숨김 설정 변경 중 오류가 발생했습니다.");
+      setChurches((prev) =>
+        prev.map((c) => (c.id === church.id ? { ...c, is_hidden: !next } : c))
+      );
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  return (
+    <Card className="border-slate-200 dark:border-slate-800">
+      <CardHeader>
+        <CardTitle className="text-slate-900 dark:text-white flex items-center gap-2">
+          <List className="h-5 w-5" />
+          교회 목록
+        </CardTitle>
+        <CardDescription>
+          숨김 처리된 교회는 웹앱의 교회 편입 요청 목록에서 노출되지 않습니다. (테스트용 교회 등)
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            불러오는 중...
+          </div>
+        ) : churches.length === 0 ? (
+          <p className="text-sm text-slate-500">등록된 교회가 없습니다.</p>
+        ) : (
+          <div className="space-y-2">
+            {churches.map((church) => (
+              <div
+                key={church.id}
+                className="flex items-center justify-between rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+              >
+                <div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                    {church.name}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {church.location}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {church.is_hidden ? "편입 요청 목록에서 숨김" : "편입 요청 목록에 노출"}
+                  </span>
+                  <Switch
+                    checked={church.is_hidden}
+                    disabled={togglingId === church.id}
+                    onCheckedChange={(checked) => handleToggle(church, checked)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
