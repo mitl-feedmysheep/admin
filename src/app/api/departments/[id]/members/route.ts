@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
-import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { requireDepartmentAccess } from "@/lib/require-department-access";
 import { randomUUID } from "crypto";
 import { withLogging } from "@/lib/api-logger";
 
@@ -9,46 +8,12 @@ export const GET = withLogging(async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) => {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json(
-      { error: "인증이 필요합니다." },
-      { status: 401 },
-    );
-  }
-
   const { id: departmentId } = await params;
 
+  const guard = await requireDepartmentAccess(departmentId);
+  if (!guard.ok) return guard.response;
+
   try {
-    const department = await prisma.department.findFirst({
-      where: { id: departmentId, church_id: session.churchId, deleted_at: null },
-    });
-
-    if (!department) {
-      return NextResponse.json(
-        { error: "부서를 찾을 수 없습니다." },
-        { status: 404 },
-      );
-    }
-
-    // SUPER_ADMIN이 아니면 해당 부서의 ADMIN 이상이어야 함
-    if (session.role !== "SUPER_ADMIN") {
-      const myDeptMember = await prisma.department_member.findFirst({
-        where: {
-          department_id: departmentId,
-          member_id: session.memberId,
-          deleted_at: null,
-        },
-      });
-
-      if (!myDeptMember || myDeptMember.role !== "ADMIN") {
-        return NextResponse.json(
-          { error: "부서 관리 권한이 필요합니다." },
-          { status: 403 },
-        );
-      }
-    }
-
     const departmentMembers = await prisma.department_member.findMany({
       where: {
         department_id: departmentId,
@@ -102,23 +67,12 @@ export const POST = withLogging(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) => {
-  const guard = await requireSuperAdmin();
-  if (!guard.ok) return guard.response;
-
   const { id: departmentId } = await params;
 
+  const guard = await requireDepartmentAccess(departmentId);
+  if (!guard.ok) return guard.response;
+
   try {
-    const department = await prisma.department.findFirst({
-      where: { id: departmentId, church_id: guard.session.churchId, deleted_at: null },
-    });
-
-    if (!department) {
-      return NextResponse.json(
-        { error: "부서를 찾을 수 없습니다." },
-        { status: 404 },
-      );
-    }
-
     const body = await request.json();
     const { memberId, role } = body;
 

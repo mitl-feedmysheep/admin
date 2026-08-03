@@ -25,7 +25,7 @@ import {
   BookMarked,
   Newspaper,
 } from "lucide-react";
-import { canAccessVisitPrayer, canAccessChurchManage } from "@/lib/roles";
+import { canAccessVisitPrayer, canAccessChurchManage, canAccessDepartmentManage } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCallback, useEffect, useState } from "react";
@@ -53,7 +53,7 @@ const visitPrayerNavigation: NavItem[] = [
   { type: "link", name: "기도제목 관리", href: "/manage/prayer", icon: BookOpen },
 ];
 
-const superAdminNavigation: NavItem[] = [
+const departmentManageNavigation: NavItem[] = [
   { type: "link", name: "부서 관리", href: "/manage/departments", icon: Building2 },
 ];
 
@@ -224,7 +224,7 @@ export function Sidebar({
   // Build navigation based on permissions
   const showVisitPrayer = canAccessVisitPrayer(role ?? "", departmentRole);
   const showChurchManage = canAccessChurchManage(role ?? "", departmentRole);
-  const isSuperAdmin = role === "SUPER_ADMIN";
+  const showDepartmentManage = canAccessDepartmentManage(role ?? "", departmentRole);
 
   return (
     <aside className="flex h-screen w-64 flex-col bg-slate-900 text-white md:sticky md:top-0">
@@ -390,7 +390,7 @@ export function Sidebar({
           ...navigation
             .slice(0, navigation.findIndex(n => n.type === "link" && n.href === "/manage/group"))
             .filter(n => n.type !== "link" || n.href !== "/manage/church" || showChurchManage),
-          ...(isSuperAdmin ? superAdminNavigation : []),
+          ...(showDepartmentManage ? departmentManageNavigation : []),
           ...navigation.slice(navigation.findIndex(n => n.type === "link" && n.href === "/manage/group")),
           ...(showVisitPrayer ? visitPrayerNavigation : []),
         ].map((item, index) => {

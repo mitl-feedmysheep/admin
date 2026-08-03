@@ -2,24 +2,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 import { getPrismaMock, resetPrismaMocks } from "@/__tests__/setup";
 
-vi.mock("@/lib/auth", () => ({
-  getSession: vi.fn(),
-}));
-
-vi.mock("@/lib/require-super-admin", () => ({
-  requireSuperAdmin: vi.fn(),
+vi.mock("@/lib/require-department-access", () => ({
+  requireDepartmentAccess: vi.fn(),
 }));
 
 vi.mock("crypto", () => ({
   randomUUID: vi.fn().mockReturnValue("generated-uuid"),
 }));
 
-import { getSession } from "@/lib/auth";
-import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { requireDepartmentAccess } from "@/lib/require-department-access";
 import { GET, POST } from "./route";
 
-const mockedGetSession = vi.mocked(getSession);
-const mockedRequireSuperAdmin = vi.mocked(requireSuperAdmin);
+const mockedRequireDepartmentAccess = vi.mocked(requireDepartmentAccess);
 
 const superAdminSession = {
   memberId: "m-1",
@@ -56,7 +50,13 @@ describe("GET /api/departments/[id]/members", () => {
   const params = Promise.resolve({ id: "dept-001" });
 
   it("returns 401 when not authenticated", async () => {
-    mockedGetSession.mockResolvedValue(null);
+    mockedRequireDepartmentAccess.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json(
+        { error: "인증이 필요합니다." },
+        { status: 401 }
+      ),
+    });
 
     const req = new NextRequest(
       "http://localhost:3001/api/departments/dept-001/members"
@@ -66,8 +66,13 @@ describe("GET /api/departments/[id]/members", () => {
   });
 
   it("returns 404 when department not found", async () => {
-    mockedGetSession.mockResolvedValue(superAdminSession);
-    getPrismaMock("department", "findFirst").mockResolvedValue(null);
+    mockedRequireDepartmentAccess.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json(
+        { error: "부서를 찾을 수 없습니다." },
+        { status: 404 }
+      ),
+    });
 
     const req = new NextRequest(
       "http://localhost:3001/api/departments/dept-001/members"
@@ -79,19 +84,12 @@ describe("GET /api/departments/[id]/members", () => {
   });
 
   it("returns 403 when non-SUPER_ADMIN and not dept ADMIN", async () => {
-    const memberSession = {
-      ...adminSession,
-      role: "MEMBER",
-      departmentRole: "MEMBER",
-    };
-    mockedGetSession.mockResolvedValue(memberSession);
-    getPrismaMock("department", "findFirst").mockResolvedValue({
-      id: "dept-001",
-    });
-    // Not a dept admin
-    getPrismaMock("department_member", "findFirst").mockResolvedValue({
-      id: "dm-1",
-      role: "MEMBER",
+    mockedRequireDepartmentAccess.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json(
+        { error: "부서 관리 권한이 필요합니다." },
+        { status: 403 }
+      ),
     });
 
     const req = new NextRequest(
@@ -104,9 +102,10 @@ describe("GET /api/departments/[id]/members", () => {
   });
 
   it("returns member list sorted by role priority for SUPER_ADMIN", async () => {
-    mockedGetSession.mockResolvedValue(superAdminSession);
-    getPrismaMock("department", "findFirst").mockResolvedValue({
-      id: "dept-001",
+    mockedRequireDepartmentAccess.mockResolvedValue({
+      ok: true,
+      session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department_member", "findMany").mockResolvedValue([
       {
@@ -152,14 +151,10 @@ describe("GET /api/departments/[id]/members", () => {
   });
 
   it("returns member list for dept ADMIN", async () => {
-    mockedGetSession.mockResolvedValue(adminSession);
-    getPrismaMock("department", "findFirst").mockResolvedValue({
-      id: "dept-001",
-    });
-    // Dept admin check
-    getPrismaMock("department_member", "findFirst").mockResolvedValue({
-      id: "dm-admin",
-      role: "ADMIN",
+    mockedRequireDepartmentAccess.mockResolvedValue({
+      ok: true,
+      session: adminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department_member", "findMany").mockResolvedValue([
       {
@@ -188,11 +183,11 @@ describe("GET /api/departments/[id]/members", () => {
 describe("POST /api/departments/[id]/members", () => {
   const params = Promise.resolve({ id: "dept-001" });
 
-  it("returns 401/403 when not SUPER_ADMIN", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+  it("returns 403 when not SUPER_ADMIN and not dept ADMIN", async () => {
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: false,
       response: NextResponse.json(
-        { error: "SUPER_ADMIN 권한이 필요합니다." },
+        { error: "부서 관리 권한이 필요합니다." },
         { status: 403 }
       ),
     });
@@ -208,28 +203,33 @@ describe("POST /api/departments/[id]/members", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 404 when department not found", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+  it("creates department member successfully for dept ADMIN", async () => {
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
-      session: superAdminSession,
+      session: adminSession,
+      department: { id: "dept-001" } as never,
     });
-    getPrismaMock("department", "findFirst").mockResolvedValue(null);
+    getPrismaMock("church_member", "findFirst").mockResolvedValue({
+      id: "cm-1",
+    });
+    getPrismaMock("department_member", "findFirst").mockResolvedValue(null);
 
     const req = new NextRequest(
       "http://localhost:3001/api/departments/dept-001/members",
       {
         method: "POST",
-        body: JSON.stringify({ memberId: "m-10" }),
+        body: JSON.stringify({ memberId: "m-10", role: "MEMBER" }),
       }
     );
     const res = await POST(req, { params });
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(201);
   });
 
   it("returns 400 when memberId missing", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",
@@ -249,9 +249,10 @@ describe("POST /api/departments/[id]/members", () => {
   });
 
   it("returns 400 when invalid role", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",
@@ -271,9 +272,10 @@ describe("POST /api/departments/[id]/members", () => {
   });
 
   it("returns 400 when member not a church member", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",
@@ -294,9 +296,10 @@ describe("POST /api/departments/[id]/members", () => {
   });
 
   it("returns 409 when member already in department", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",
@@ -322,9 +325,10 @@ describe("POST /api/departments/[id]/members", () => {
   });
 
   it("creates department member successfully", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",

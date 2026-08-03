@@ -1,29 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { requireDepartmentAccess } from "@/lib/require-department-access";
 import { withLogging } from "@/lib/api-logger";
 
 export const DELETE = withLogging(async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> },
 ) => {
-  const guard = await requireSuperAdmin();
-  if (!guard.ok) return guard.response;
-
   const { id: departmentId, memberId } = await params;
 
+  const guard = await requireDepartmentAccess(departmentId);
+  if (!guard.ok) return guard.response;
+
   try {
-    const department = await prisma.department.findFirst({
-      where: { id: departmentId, church_id: guard.session.churchId, deleted_at: null },
-    });
-
-    if (!department) {
-      return NextResponse.json(
-        { error: "부서를 찾을 수 없습니다." },
-        { status: 404 },
-      );
-    }
-
     const deptMember = await prisma.department_member.findFirst({
       where: {
         department_id: departmentId,
@@ -58,23 +47,12 @@ export const PATCH = withLogging(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> },
 ) => {
-  const guard = await requireSuperAdmin();
-  if (!guard.ok) return guard.response;
-
   const { id: departmentId, memberId } = await params;
 
+  const guard = await requireDepartmentAccess(departmentId);
+  if (!guard.ok) return guard.response;
+
   try {
-    const department = await prisma.department.findFirst({
-      where: { id: departmentId, church_id: guard.session.churchId, deleted_at: null },
-    });
-
-    if (!department) {
-      return NextResponse.json(
-        { error: "부서를 찾을 수 없습니다." },
-        { status: 404 },
-      );
-    }
-
     const deptMember = await prisma.department_member.findFirst({
       where: {
         department_id: departmentId,

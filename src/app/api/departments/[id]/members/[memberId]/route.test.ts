@@ -6,18 +6,18 @@ vi.mock("@/lib/auth", () => ({
   getSession: vi.fn(),
 }));
 
-vi.mock("@/lib/require-super-admin", () => ({
-  requireSuperAdmin: vi.fn(),
+vi.mock("@/lib/require-department-access", () => ({
+  requireDepartmentAccess: vi.fn(),
 }));
 
 vi.mock("crypto", () => ({
   randomUUID: vi.fn().mockReturnValue("generated-uuid"),
 }));
 
-import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { requireDepartmentAccess } from "@/lib/require-department-access";
 import { PATCH, DELETE } from "./route";
 
-const mockedRequireSuperAdmin = vi.mocked(requireSuperAdmin);
+const mockedRequireDepartmentAccess = vi.mocked(requireDepartmentAccess);
 
 const superAdminSession = {
   memberId: "m-1",
@@ -25,6 +25,19 @@ const superAdminSession = {
   churchId: "church-001",
   churchName: "교회",
   role: "SUPER_ADMIN",
+  departmentId: "dept-001",
+  departmentName: "청년부",
+  departmentRole: "ADMIN",
+  iat: 0,
+  exp: 0,
+};
+
+const deptAdminSession = {
+  memberId: "m-2",
+  memberName: "부서장",
+  churchId: "church-001",
+  churchName: "교회",
+  role: "ADMIN",
   departmentId: "dept-001",
   departmentName: "청년부",
   departmentRole: "ADMIN",
@@ -40,11 +53,11 @@ beforeEach(() => {
 describe("PATCH /api/departments/[id]/members/[memberId]", () => {
   const params = Promise.resolve({ id: "dept-001", memberId: "m-10" });
 
-  it("returns 401/403 when not SUPER_ADMIN", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+  it("returns 403 when not SUPER_ADMIN and not dept ADMIN", async () => {
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: false,
       response: NextResponse.json(
-        { error: "SUPER_ADMIN 권한이 필요합니다." },
+        { error: "부서 관리 권한이 필요합니다." },
         { status: 403 }
       ),
     });
@@ -57,27 +70,31 @@ describe("PATCH /api/departments/[id]/members/[memberId]", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 404 when department not found", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+  it("updates role successfully for dept ADMIN", async () => {
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
-      session: superAdminSession,
+      session: deptAdminSession,
+      department: { id: "dept-001" } as never,
     });
-    getPrismaMock("department", "findFirst").mockResolvedValue(null);
+    getPrismaMock("department_member", "findFirst").mockResolvedValue({
+      id: "dm-1",
+      role: "MEMBER",
+    });
+    getPrismaMock("department_member", "update").mockResolvedValue({});
 
     const req = new NextRequest(
       "http://localhost:3001/api/departments/dept-001/members/m-10",
       { method: "PATCH", body: JSON.stringify({ role: "LEADER" }) }
     );
     const res = await PATCH(req, { params });
-    expect(res.status).toBe(404);
-    const body = await res.json();
-    expect(body.error).toContain("부서를 찾을 수 없습니다");
+    expect(res.status).toBe(200);
   });
 
   it("returns 404 when dept member not found", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",
@@ -95,9 +112,10 @@ describe("PATCH /api/departments/[id]/members/[memberId]", () => {
   });
 
   it("returns 400 when invalid role", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",
@@ -118,9 +136,10 @@ describe("PATCH /api/departments/[id]/members/[memberId]", () => {
   });
 
   it("returns 400 when invalid status", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",
@@ -141,9 +160,10 @@ describe("PATCH /api/departments/[id]/members/[memberId]", () => {
   });
 
   it("updates role successfully", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",
@@ -165,9 +185,10 @@ describe("PATCH /api/departments/[id]/members/[memberId]", () => {
   });
 
   it("updates status successfully", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",
@@ -192,8 +213,8 @@ describe("PATCH /api/departments/[id]/members/[memberId]", () => {
 describe("DELETE /api/departments/[id]/members/[memberId]", () => {
   const params = Promise.resolve({ id: "dept-001", memberId: "m-10" });
 
-  it("returns 401/403 when not SUPER_ADMIN", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+  it("returns 401 when not authenticated", async () => {
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: false,
       response: NextResponse.json(
         { error: "인증이 필요합니다." },
@@ -209,27 +230,47 @@ describe("DELETE /api/departments/[id]/members/[memberId]", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 404 when department not found", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
-      ok: true,
-      session: superAdminSession,
+  it("returns 403 when not SUPER_ADMIN and not dept ADMIN", async () => {
+    mockedRequireDepartmentAccess.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json(
+        { error: "부서 관리 권한이 필요합니다." },
+        { status: 403 }
+      ),
     });
-    getPrismaMock("department", "findFirst").mockResolvedValue(null);
 
     const req = new NextRequest(
       "http://localhost:3001/api/departments/dept-001/members/m-10",
       { method: "DELETE" }
     );
     const res = await DELETE(req, { params });
-    expect(res.status).toBe(404);
-    const body = await res.json();
-    expect(body.error).toContain("부서를 찾을 수 없습니다");
+    expect(res.status).toBe(403);
+  });
+
+  it("soft deletes department member successfully for dept ADMIN", async () => {
+    mockedRequireDepartmentAccess.mockResolvedValue({
+      ok: true,
+      session: deptAdminSession,
+      department: { id: "dept-001" } as never,
+    });
+    getPrismaMock("department_member", "findFirst").mockResolvedValue({
+      id: "dm-1",
+    });
+    getPrismaMock("department_member", "update").mockResolvedValue({});
+
+    const req = new NextRequest(
+      "http://localhost:3001/api/departments/dept-001/members/m-10",
+      { method: "DELETE" }
+    );
+    const res = await DELETE(req, { params });
+    expect(res.status).toBe(204);
   });
 
   it("returns 404 when dept member not found", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",
@@ -247,9 +288,10 @@ describe("DELETE /api/departments/[id]/members/[memberId]", () => {
   });
 
   it("soft deletes department member successfully", async () => {
-    mockedRequireSuperAdmin.mockResolvedValue({
+    mockedRequireDepartmentAccess.mockResolvedValue({
       ok: true,
       session: superAdminSession,
+      department: { id: "dept-001" } as never,
     });
     getPrismaMock("department", "findFirst").mockResolvedValue({
       id: "dept-001",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   Card,
@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ContactAdminDialog } from "@/components/contact-admin-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Building2,
   Plus,
@@ -111,6 +112,44 @@ function statusBadge(status: string) {
     <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">
       활동중
     </Badge>
+  );
+}
+
+// ─── Add Department Button (SUPER_ADMIN only, disabled otherwise) ─────
+
+function AddDepartmentButton({
+  isSuperAdmin,
+  onClick,
+  variant,
+  className,
+  children,
+}: {
+  isSuperAdmin: boolean;
+  onClick: () => void;
+  variant?: "default" | "outline";
+  className: string;
+  children: ReactNode;
+}) {
+  const button = (
+    <Button
+      variant={variant}
+      onClick={isSuperAdmin ? onClick : undefined}
+      disabled={!isSuperAdmin}
+      className={className}
+    >
+      {children}
+    </Button>
+  );
+
+  if (isSuperAdmin) return button;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-block w-full">{button}</span>
+      </TooltipTrigger>
+      <TooltipContent>관리자에게 문의해주세요</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -398,15 +437,14 @@ export function DepartmentManageClient() {
             <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">
               부서를 추가하여 교회 조직을 관리해보세요
             </p>
-            {isSuperAdmin && (
-              <Button
-                onClick={openCreateDialog}
-                className="mt-6 gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                <Plus className="h-4 w-4" />
-                첫 부서 추가하기
-              </Button>
-            )}
+            <AddDepartmentButton
+              isSuperAdmin={isSuperAdmin}
+              onClick={openCreateDialog}
+              className="mt-6 gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              <Plus className="h-4 w-4" />
+              첫 부서 추가하기
+            </AddDepartmentButton>
           </CardContent>
         </Card>
       ) : (
@@ -454,16 +492,15 @@ export function DepartmentManageClient() {
                 </button>
               );
             })}
-            {isSuperAdmin && (
-              <Button
-                variant="outline"
-                onClick={openCreateDialog}
-                className="w-full gap-2 border-dashed"
-              >
-                <Plus className="h-4 w-4" />
-                부서 추가
-              </Button>
-            )}
+            <AddDepartmentButton
+              isSuperAdmin={isSuperAdmin}
+              onClick={openCreateDialog}
+              variant="outline"
+              className="w-full gap-2 border-dashed"
+            >
+              <Plus className="h-4 w-4" />
+              부서 추가
+            </AddDepartmentButton>
           </div>
 
           {/* ─── Right: Department Detail ───────────────────────────── */}

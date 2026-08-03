@@ -80,3 +80,16 @@ export function canAccessChurchManage(
   if (departmentRole === "ADMIN") return true;
   return false;
 }
+
+/**
+ * 부서 관리 탭 접근 가능 여부 체크
+ * dept ADMIN OR church SUPER_ADMIN only
+ */
+export function canAccessDepartmentManage(
+  churchRole: string,
+  departmentRole?: string,
+): boolean {
+  if (churchRole === "SUPER_ADMIN") return true;
+  if (departmentRole === "ADMIN") return true;
+  return false;
+}
