@@ -141,6 +141,42 @@ describe("middleware", () => {
     });
   });
 
+  describe("department manage routes", () => {
+    it("redirects /manage/departments to /dashboard for church MEMBER without dept ADMIN", async () => {
+      jwtVerifyMock.mockResolvedValue({
+        payload: { role: "MEMBER", memberId: "m-1", departmentRole: "LEADER" },
+      });
+
+      const res = await middleware(
+        createRequest("/manage/departments", "valid-token")
+      );
+      expect(res.status).toBe(307);
+      expect(res.headers.get("Location")).toContain("/dashboard");
+    });
+
+    it("allows /manage/departments for church MEMBER with dept ADMIN", async () => {
+      jwtVerifyMock.mockResolvedValue({
+        payload: { role: "MEMBER", memberId: "m-1", departmentRole: "ADMIN" },
+      });
+
+      const res = await middleware(
+        createRequest("/manage/departments", "valid-token")
+      );
+      expect(res.status).toBe(200);
+    });
+
+    it("allows /manage/departments for church SUPER_ADMIN", async () => {
+      jwtVerifyMock.mockResolvedValue({
+        payload: { role: "SUPER_ADMIN", memberId: "m-1" },
+      });
+
+      const res = await middleware(
+        createRequest("/manage/departments", "valid-token")
+      );
+      expect(res.status).toBe(200);
+    });
+  });
+
   describe("system admin routes", () => {
     it("redirects /system/church when memberId does not match", async () => {
       jwtVerifyMock.mockResolvedValue({
