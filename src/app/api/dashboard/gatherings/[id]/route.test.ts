@@ -125,6 +125,7 @@ describe("PATCH /api/dashboard/gatherings/[id]", () => {
         data: expect.objectContaining({
           receiver_id: "leader-1",
           type: "ADMIN_COMMENT",
+          description: "앱에서 확인해주세요.",
           entity_type: "GATHERING",
           entity_id: "g-1",
         }),
@@ -132,7 +133,7 @@ describe("PATCH /api/dashboard/gatherings/[id]", () => {
     );
     expect(mockedSendPushToMembers).toHaveBeenCalledWith(
       ["leader-1"],
-      expect.objectContaining({ body: "새로운 코멘트" })
+      expect.objectContaining({ body: "앱에서 확인해주세요." })
     );
   });
 
