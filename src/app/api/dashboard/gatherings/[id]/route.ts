@@ -205,7 +205,6 @@ export const PATCH = withLogging(async (
 
       const now = new Date();
       const targetUrl = `/groups/${existing.group_id}/gathering/${gatheringId}`;
-      const description = "앱에서 확인해주세요.";
       const pushTargetMemberIds: string[] = [];
 
       for (const leader of leaders) {
@@ -232,7 +231,6 @@ export const PATCH = withLogging(async (
                 sender_id: session.memberId,
                 department_id: existing.group?.department_id ?? null,
                 type: "ADMIN_COMMENT",
-                description,
                 entity_type: "GATHERING",
                 entity_id: gatheringId,
                 target_url: targetUrl,
@@ -253,7 +251,6 @@ export const PATCH = withLogging(async (
         try {
           await sendPushToMembers(pushTargetMemberIds, {
             title: "목회자 코멘트가 등록되었어요 😊",
-            body: description,
             url: targetUrl,
           });
         } catch (pushError) {
