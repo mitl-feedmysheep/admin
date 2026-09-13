@@ -563,3 +563,17 @@ model announcement {
   @@index([entity_type, entity_id, type], map: "idx_announcement_entity_type")
   @@index([send_at, is_sent], map: "idx_announcement_send_at_is_sent")
 }
+
+/// 웹푸시(VAPID) 구독 정보
+model push_subscription {
+  id         String   @id @db.Char(36)
+  member_id  String   @db.Char(36)
+  endpoint   String   @unique @db.VarChar(768)
+  p256dh     String?  @db.VarChar(255)
+  auth       String?  @db.VarChar(255)
+  user_agent String?  @db.VarChar(500)
+  timezone   String   @db.VarChar(64)
+  created_at DateTime @db.DateTime(6)
+
+  @@index([member_id], map: "idx_push_subscription_member_id")
+}

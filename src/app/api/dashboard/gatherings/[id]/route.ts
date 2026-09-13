@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { withLogging } from "@/lib/api-logger";
+import { sendPushToMembers } from "@/lib/webpush";
 
 /**
  * GET /api/dashboard/gatherings/[id]
@@ -203,6 +204,9 @@ export const PATCH = withLogging(async (
       console.log("[Notification] commentChanged=true, leaders found:", leaders.length, "senderId:", session.memberId);
 
       const now = new Date();
+      const targetUrl = `/groups/${existing.group_id}/gathering/${gatheringId}`;
+      const pushTargetMemberIds: string[] = [];
+
       for (const leader of leaders) {
         try {
           // 중복 체크: 같은 소모임에 미읽음 알림이 이미 있으면 스킵
@@ -220,7 +224,6 @@ export const PATCH = withLogging(async (
           console.log("[Notification] leader:", leader.member_id, "alreadyExists:", !!alreadyExists);
 
           if (!alreadyExists) {
-            const targetUrl = `/groups/${existing.group_id}/gathering/${gatheringId}`;
             await prisma.notification.create({
               data: {
                 id: crypto.randomUUID(),
@@ -237,9 +240,22 @@ export const PATCH = withLogging(async (
               },
             });
             console.log("[Notification] created for leader:", leader.member_id);
+            pushTargetMemberIds.push(leader.member_id);
           }
         } catch (notifError) {
           console.error("[Notification] Failed for leader:", leader.member_id, notifError);
+        }
+      }
+
+      if (pushTargetMemberIds.length > 0) {
+        try {
+          await sendPushToMembers(pushTargetMemberIds, {
+            title: "목회자 코멘트가 등록됐어요",
+            body: adminComment,
+            url: targetUrl,
+          });
+        } catch (pushError) {
+          console.error("[WebPush] Failed to send admin comment push:", pushError);
         }
       }
     } else {
